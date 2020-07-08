@@ -28,6 +28,10 @@ def token_login_arguments(parser):
     parser.add_argument(
         "-f", "--file", action="store", default=None,
         help="file containing the token, use - to read from standard input")
+    parser.add_argument(
+        "--token", action="store", default=None,
+        help="the token as a parameter, not recommended as it can easily "
+             "appear in log files etc")
 
 
 def token_login(hub, args):
@@ -40,6 +44,8 @@ def token_login(hub, args):
                 hub.fatal("The file for the token doesn't exist.")
             with path.open(encoding="ascii") as f:
                 token = f.readline().strip()
+    elif args.token:
+        token = args.token
     else:
         token = getpass("token: ")
     try:
