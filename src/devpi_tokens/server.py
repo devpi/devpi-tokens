@@ -1,6 +1,8 @@
 from devpi_common.types import cached_property
 from functools import lru_cache
 from pluggy import HookimplMarker
+from pyramid.compat import is_nonstr_iter
+from pyramid.security import Everyone
 import argon2
 import base64
 import pymacaroons
@@ -41,7 +43,7 @@ class TokenUtility:
         secret_parameters = self._secret_parameters
         return argon2.low_level.hash_secret_raw(
             self.tokens_secret,
-            base64.urlsafe_b64decode(key + '==='),
+            base64.urlsafe_b64decode(key + "==="),
             time_cost=secret_parameters.time_cost,
             memory_cost=secret_parameters.memory_cost,
             parallelism=secret_parameters.parallelism,
@@ -118,9 +120,28 @@ def devpiserver_auth_request(request, userdict, username, password):
         return dict(status="reject")
     try:
         tu.verify(macaroon, tokens[token_id])
+        # XXX this is a bit hacky until Pyramid 2.0
+        request.devpi_macaroon = macaroon
         return dict(status="ok")
     except Exception:
         return dict(status="reject")
+
+
+@server_hookimpl
+def devpiserver_auth_denials(request, acl, user, stage):
+    denials = None
+    macaroon = getattr(request, "devpi_macaroon", None)
+    if macaroon:
+        # with a token the user can't be modified, so for instance no new
+        # tokens can be created
+        denials = set()
+        for ace_action, ace_principal, ace_permissions in acl:
+            if not is_nonstr_iter(ace_permissions):
+                ace_permissions = [ace_permissions]
+            for ace_permission in ace_permissions:
+                if ace_permission.startswith("user_"):
+                    denials.add((Everyone, ace_permission))
+    return denials
 
 
 def includeme(config):

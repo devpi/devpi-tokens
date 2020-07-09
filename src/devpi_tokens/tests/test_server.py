@@ -1,3 +1,4 @@
+from devpi_common.url import URL
 import pytest
 try:
     from devpi_server import __version__  # noqa
@@ -7,13 +8,15 @@ else:
     from test_devpi_server.conftest import gentmp  # noqa
     from test_devpi_server.conftest import httpget  # noqa
     from test_devpi_server.conftest import lower_argon2_parameters  # noqa
+    from test_devpi_server.conftest import makemapp  # noqa
     from test_devpi_server.conftest import maketestapp  # noqa
     from test_devpi_server.conftest import makexom  # noqa
+    from test_devpi_server.conftest import mapp  # noqa
     from test_devpi_server.conftest import pypiurls  # noqa
     from test_devpi_server.conftest import storage_info  # noqa
     from test_devpi_server.conftest import testapp  # noqa
 
-    (makexom, testapp)  # shut up pyflakes
+    (makexom, mapp, testapp)  # shut up pyflakes
 
 
 @pytest.fixture
@@ -95,3 +98,20 @@ def test_auth_request(makerequest, xom):
         basic = b64encode(basic_auth).decode('ascii')
         request.headers["Authorization"] = "Basic %s" % basic
         assert request.authenticated_userid is None
+
+
+def test_token_user_permissions(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    mapp.logout()
+    # with no login it should be denied
+    testapp.post(url, code=403)
+    # with token authentication it should also be denied
+    headers = dict(authorization="Bearer %s" % token)
+    testapp.post(
+        url, headers=headers, code=403)
+    # as well as deletion
+    r = testapp.delete('/' + api.user, headers=headers, expect_errors=True)
+    assert r.status_code == 403
