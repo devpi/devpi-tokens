@@ -94,6 +94,11 @@ def token_login(hub, args):
     macaroon = get_token_macaroon(hub, token)
     (token_user, token_id) = get_macaroon_user_id(hub, macaroon)
     hub.current.set_auth(token_user, token)
+    r = hub.http_api("get", hub.current.root_url.joinpath("+api"))
+    authstatus = r.result.get("authstatus")
+    if authstatus and authstatus[0] != "ok":
+        hub.current.del_auth()
+        hub.fatal("Login with token at %r failed" % hub.current.index)
     msg = "logged in %r" % token_user
     if hub.current.index:
         msg = "%s at %r" % (msg, hub.current.index)

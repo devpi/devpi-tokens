@@ -3,6 +3,8 @@
 
 - add ``inspect-token`` command
 
+- verify login status when using ``token-login``
+
 
 0.2.0 (Unreleased)
 ==================
