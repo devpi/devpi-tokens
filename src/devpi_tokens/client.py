@@ -3,6 +3,7 @@ from pluggy import HookimplMarker
 import py
 import pymacaroons
 import sys
+import textwrap
 import traceback
 
 
@@ -62,6 +63,26 @@ def create_token(hub, args):
     hub.line(token)
 
 
+def inspect_token_arguments(parser):
+    """ Inspect a given token.
+    """
+    add_token_args(parser)
+
+
+def inspect_token(hub, args):
+    token = get_token_from_args(hub, args)
+    macaroon = get_token_macaroon(hub, token)
+    (token_user, token_id) = get_macaroon_user_id(hub, macaroon)
+    info = [
+        ('user', token_user),
+        ('id', token_id)]
+    info_text = textwrap.indent(
+        "\n".join("%s: %s" % (k.ljust(8), v) for k, v in info),
+        "    ")
+    hub.info("Token info:")
+    hub.line(info_text)
+
+
 def token_login_arguments(parser):
     """ Login using a token.
     """
@@ -83,4 +104,5 @@ def token_login(hub, args):
 def devpiclient_subcommands():
     return [
         (create_token_arguments, "create-token", "devpi_tokens.client:create_token"),
+        (inspect_token_arguments, "inspect-token", "devpi_tokens.client:inspect_token"),
         (token_login_arguments, "token-login", "devpi_tokens.client:token_login")]
