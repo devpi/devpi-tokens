@@ -100,6 +100,41 @@ def test_auth_request(makerequest, xom):
         assert request.authenticated_userid is None
 
 
+def test_login_with_token_as_password(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    mapp.logout()
+    mapp.login(api.user, token, code=401)
+    assert mapp.auth is None
+    # now explicitly check for error message
+    r = testapp.post_json(
+        api.login,
+        {"user": api.user, "password": token},
+        expect_errors=True)
+    assert r.status_code == 401
+    assert "has no permission to login with the" in r.json['message']
+
+
+def test_login_with_token_as_password_and_mismatched_user(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    username = api.user + 'foo'
+    token = r.json['result']['token']
+    mapp.logout()
+    mapp.login(username, token, code=401)
+    assert mapp.auth is None
+    # now explicitly check for error message
+    r = testapp.post_json(
+        api.login,
+        {"user": username, "password": token},
+        expect_errors=True)
+    assert r.status_code == 401
+    assert "could not be authenticated" in r.json['message']
+
+
 def test_token_user_permissions(mapp, testapp):
     api = mapp.create_and_use()
     url = URL(api.index).joinpath('+token-create').url

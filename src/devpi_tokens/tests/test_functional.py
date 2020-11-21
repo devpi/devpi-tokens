@@ -179,3 +179,19 @@ def test_token_login(capfd, devpi):
     devpi("use")
     (out, err) = capfd.readouterr()
     assert "logged in as user" in out
+
+
+def test_login_with_token_as_password_user_permissions(capfd, devpi, devpi_username):
+    devpi("create-token")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    devpi("logout")
+    (out, err) = capfd.readouterr()
+    assert "login information deleted" in out
+    devpi("use")
+    (out, err) = capfd.readouterr()
+    assert "not logged in" in out
+    devpi("login", "--password", token, devpi_username)
+    (out, err) = capfd.readouterr()
+    assert '401 Unauthorized' in out
+    assert 'no permission to login with the provided credentials' in out
