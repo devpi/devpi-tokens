@@ -54,13 +54,16 @@ def makerequest(app):
 def test_get_credentials(makerequest, xom):
     request = makerequest("/")
     assert request.unauthenticated_userid is None
+    request = makerequest("/")
     request.headers["Authorization"] = ""
     assert request.unauthenticated_userid is None
+    request = makerequest("/")
     request.headers["Authorization"] = "Bearer"
     assert request.unauthenticated_userid is None
     with xom.keyfs.transaction(write=True):
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
+        request = makerequest("/")
         request.headers["Authorization"] = "Bearer %s" % token
         assert request.unauthenticated_userid == "foo"
 
@@ -70,32 +73,40 @@ def test_auth_request(makerequest, xom):
     import secrets
     request = makerequest("/")
     assert request.authenticated_userid is None
+    request = makerequest("/")
     request.headers["Authorization"] = ""
     assert request.authenticated_userid is None
+    request = makerequest("/")
     request.headers["Authorization"] = "Bearer"
     assert request.authenticated_userid is None
     with xom.keyfs.transaction(write=True):
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
+        request = makerequest("/")
         request.headers["Authorization"] = "Bearer %s" % token
         assert request.authenticated_userid == "foo"
         with user.key.update() as userdict:
             (token_id,) = userdict["tokens"].keys()
             userdict["tokens"][token_id]["key"] = secrets.token_urlsafe(32)
+        request = makerequest("/")
         assert request.authenticated_userid is None
         with user.key.update() as userdict:
             (token_id,) = userdict["tokens"].keys()
             del userdict["tokens"][token_id]
+        request = makerequest("/")
         assert request.authenticated_userid is None
         with user.key.update() as userdict:
             del userdict["tokens"]
+        request = makerequest("/")
         assert request.authenticated_userid is None
         basic_auth = "bar:%s" % token
         basic = b64encode(basic_auth).decode('ascii')
+        request = makerequest("/")
         request.headers["Authorization"] = "Basic %s" % basic
         assert request.authenticated_userid is None
         basic_auth = "bar:foo"
         basic = b64encode(basic_auth).decode('ascii')
+        request = makerequest("/")
         request.headers["Authorization"] = "Basic %s" % basic
         assert request.authenticated_userid is None
 

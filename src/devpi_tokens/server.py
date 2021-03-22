@@ -1,8 +1,8 @@
 from devpi_common.types import cached_property
 from functools import lru_cache
 from pluggy import HookimplMarker
-from pyramid.compat import is_nonstr_iter
-from pyramid.security import Everyone
+from pyramid.authorization import Everyone
+from pyramid.util import is_nonstr_iter
 import argon2
 import base64
 import pymacaroons
