@@ -87,60 +87,58 @@ def devpi_token_utility(request):
     return result
 
 
+class TokenIdentity:
+    def __init__(self, username, macaroon):
+        self.username = username
+        self.groups = []
+        self.macaroon = macaroon
+
+
 @server_hookimpl
-def devpiserver_get_credentials(request):
+def devpiserver_get_identity(request, credentials):
     authorization = getattr(request, "authorization", None)
-    if not authorization:
-        return None
-    if authorization.authtype.lower() != "bearer":
+    if authorization is not None:
+        if authorization.authtype.lower() == "bearer":
+            credentials = (None, authorization.params)
+    if credentials is None:
         return None
     try:
         tu = request.devpi_token_utility
-        macaroon = tu.deserialize(authorization.params)
+        macaroon = tu.deserialize(credentials[1])
         (token_user, token_id) = tu.token_user_id(macaroon)
     except Exception:
         # if token isn't a valid macaroon, then we don't care
         return None
-    return (token_user, authorization.params)
-
-
-@server_hookimpl
-def devpiserver_auth_request(request, userdict, username, password):
-    try:
-        tu = request.devpi_token_utility
-        macaroon = tu.deserialize(password)
-        (token_user, token_id) = tu.token_user_id(macaroon)
-    except Exception:
-        # if password isn't a valid macaroon, then we don't care
+    if credentials[0] is not None and credentials[0] != token_user:
         return None
-    if token_user != username:
-        return dict(status="reject")
-    tokens = userdict.get("tokens", {})
+    model = request.registry["xom"].model
+    user = model.get_user(token_user)
+    if user is None:
+        return None
+    tokens = user.get(credentials=True).get("tokens", {})
     if token_id not in tokens:
-        return dict(status="reject")
+        return None
     try:
         tu.verify(macaroon, tokens[token_id])
-        # XXX this is a bit hacky until Pyramid 2.0
-        request.devpi_macaroon = macaroon
-        return dict(status="ok")
     except Exception:
-        return dict(status="reject")
+        return None
+    return TokenIdentity(token_user, credentials[1])
 
 
 @server_hookimpl
 def devpiserver_auth_denials(request, acl, user, stage):
-    denials = None
-    macaroon = getattr(request, "devpi_macaroon", None)
-    if macaroon:
-        # with a token the user can't be modified, so for instance no new
-        # tokens can be created
-        denials = set()
-        for ace_action, ace_principal, ace_permissions in acl:
-            if not is_nonstr_iter(ace_permissions):
-                ace_permissions = [ace_permissions]
-            for ace_permission in ace_permissions:
-                if ace_permission.startswith("user_"):
-                    denials.add((Everyone, ace_permission))
+    identity = request.identity
+    if identity is None or not isinstance(identity, TokenIdentity):
+        return None
+    # with a token the user can't be modified, so for instance no new
+    # tokens can be created
+    denials = set()
+    for ace_action, ace_principal, ace_permissions in acl:
+        if not is_nonstr_iter(ace_permissions):
+            ace_permissions = [ace_permissions]
+        for ace_permission in ace_permissions:
+            if ace_permission.startswith("user_"):
+                denials.add((Everyone, ace_permission))
     return denials
 
 

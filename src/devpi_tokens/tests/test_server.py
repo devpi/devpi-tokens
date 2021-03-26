@@ -51,21 +51,24 @@ def makerequest(app):
     return makerequest
 
 
-def test_get_credentials(makerequest, xom):
+def test_get_identity(makerequest, xom):
+    from devpi_tokens.server import TokenIdentity
     request = makerequest("/")
-    assert request.unauthenticated_userid is None
+    assert request.identity is None
     request = makerequest("/")
     request.headers["Authorization"] = ""
-    assert request.unauthenticated_userid is None
+    assert request.identity is None
     request = makerequest("/")
     request.headers["Authorization"] = "Bearer"
-    assert request.unauthenticated_userid is None
+    assert request.identity is None
     with xom.keyfs.transaction(write=True):
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
         request = makerequest("/")
         request.headers["Authorization"] = "Bearer %s" % token
-        assert request.unauthenticated_userid == "foo"
+        assert isinstance(request.identity, TokenIdentity)
+        assert request.identity.username == "foo"
+        assert request.identity.groups == []
 
 
 def test_auth_request(makerequest, xom):
@@ -125,7 +128,7 @@ def test_login_with_token_as_password(mapp, testapp):
         {"user": api.user, "password": token},
         expect_errors=True)
     assert r.status_code == 401
-    assert "has no permission to login with the" in r.json['message']
+    assert "could not be authenticated" in r.json['message']
 
 
 def test_login_with_token_as_password_and_mismatched_user(mapp, testapp):

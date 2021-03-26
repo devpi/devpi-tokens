@@ -126,7 +126,7 @@ def _liveserver(serverdir):
     return (p, URL("http://%s:%s" % (host, port)))
 
 
-@pytest.yield_fixture(scope="session")
+@pytest.fixture(scope="session")
 def url_of_liveserver(request):
     serverdir = request.config._tmpdirhandler.mktemp("liveserver")
     (p, url) = _liveserver(serverdir)
@@ -194,4 +194,4 @@ def test_login_with_token_as_password_user_permissions(capfd, devpi, devpi_usern
     devpi("login", "--password", token, devpi_username)
     (out, err) = capfd.readouterr()
     assert '401 Unauthorized' in out
-    assert 'no permission to login with the provided credentials' in out
+    assert 'could not be authenticated' in out
