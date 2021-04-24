@@ -1,4 +1,5 @@
 from devpi_common.url import URL
+import json
 import pymacaroons
 import pytest
 try:
@@ -188,18 +189,18 @@ def test_create_token_expiration(mapp, testapp):
     api = mapp.create_and_use()
     url = URL(api.index).joinpath('+token-create').url
     # invalid
-    r = testapp.post(url, dict(expires="invalid"), code=400)
+    r = testapp.post(url, json.dumps(dict(expires="invalid")), code=400)
     assert r.json["message"] == "Invalid value 'invalid' for expiration"
     # not before current time
-    r = testapp.post(url, dict(expires=10), code=400)
+    r = testapp.post(url, json.dumps(dict(expires=10)), code=400)
     assert r.json["message"] == "Can't set expiration before current time"
     # not more than a year
-    r = testapp.post(url, dict(expires=int(time.time() + 31536001)), code=403)
+    r = testapp.post(url, json.dumps(dict(expires=int(time.time() + 31536001))), code=403)
     assert r.json["message"] == "Not allowed to set expiration to more than one year"
     # just 10 seconds
-    r = testapp.post(url, dict(expires=int(time.time() + 10)))
+    r = testapp.post(url, json.dumps(dict(expires=int(time.time() + 10))))
     # "never" not allowed by regular users
-    r = testapp.post(url, dict(expires="never"), code=403)
+    r = testapp.post(url, json.dumps(dict(expires="never")), code=403)
     assert r.json["message"] == "Not allowed to create token with no expiration"
 
 
@@ -222,7 +223,7 @@ def test_root_can_create_never_expiring_tokens(mapp, testapp):
     api = mapp.create_and_use()
     mapp.login("root", "")
     url = URL(api.index).joinpath('+token-create').url
-    r = testapp.post(url, dict(expires="never"))
+    r = testapp.post(url, json.dumps(dict(expires="never")))
     token = r.json['result']['token']
     macaroon = pymacaroons.Macaroon.deserialize(token)
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)

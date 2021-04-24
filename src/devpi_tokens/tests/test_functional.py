@@ -18,6 +18,20 @@ except ImportError:
 
 
 @pytest.fixture
+def capfd(capfd):
+    from _pytest.pytester import LineMatcher
+
+    def readouterr_matcher():
+        result = capfd.readouterr()
+        result.out = LineMatcher(result.out.splitlines())
+        result.err = LineMatcher(result.err.splitlines())
+        return result
+
+    capfd.readouterr_matcher = readouterr_matcher
+    return capfd
+
+
+@pytest.fixture
 def cmd_devpi(tmpdir, monkeypatch):
     """ execute devpi subcommand in-process (with fresh init) """
     from devpi.main import initmain
@@ -261,3 +275,35 @@ def test_root_user_can_create_other_tokens(capfd, devpi, devpi_username):
     (out, err) = capfd.readouterr()
     assert ("Tokens for '%s':" % token_user) in out
     assert "    %s" % token_id in out
+
+
+def test_root_create_expiration(capfd, devpi, devpi_username):
+    from devpi_tokens.client import pymacaroons
+    devpi("login", "root", "--password", "")
+    (out, err) = capfd.readouterr()
+    assert "logged in 'root'" in out
+    devpi("token-create", "-u", devpi_username, "-e", "never")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    assert token_user == devpi_username
+    devpi("token-inspect", "--token", token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*restriction*: expires=never")
+    devpi("token-create", "-u", devpi_username, "-e", "3 years")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    assert token_user == devpi_username
+    devpi("token-inspect", "--token", token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*restriction*: expires=*")
+    devpi("token-list", "-u", devpi_username)
+    (out, err) = capfd.readouterr()
+    assert ("Tokens for '%s':" % token_user) in out
+    assert "    %s" % token_id in out
+    assert "restrictions: expires=never" in out

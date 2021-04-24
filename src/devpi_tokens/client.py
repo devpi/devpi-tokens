@@ -1,5 +1,7 @@
+from delta import parse as parse_delta
 from getpass import getpass
 from pluggy import HookimplMarker
+import datetime
 import py
 import pymacaroons
 import sys
@@ -72,12 +74,28 @@ def token_create_arguments(parser):
     """ Create a token for user.
     """
     add_user_arg(parser)
+    parser.add_argument(
+        "-e", "--expires", action="store", default="1 year",
+        help="expiration as epoch timestamp or delta with units: y(ear(s)), "
+             "m(onth(s)), w(eek(s)), d(ay(s)), h(our(s)), min(ute(s)) and "
+             "s(econd(s))")
 
 
 def token_create(hub, args):
     hub.requires_login()
     url = get_user_url_from_args(hub, args).joinpath('+token-create')
-    r = hub.http_api("post", url, type="token-info")
+    expires = args.expires
+    if expires != "never":
+        try:
+            expires = int(
+                (datetime.datetime.utcnow() + parse_delta(expires)).timestamp())
+        except Exception:
+            hub.fatal("Can't parse expiration '%s'" % expires)
+    r = hub.http_api(
+        "post", url,
+        kvdict=dict(
+            expires=expires),
+        type="token-info")
     token = r.result["token"]
     hub.line(token)
 
@@ -111,8 +129,11 @@ def token_inspect(hub, args):
     info = [
         ('user', token_user),
         ('id', token_id)]
+    for caveat in macaroon.caveats:
+        info.append(('restriction', caveat.to_dict()['cid']))
+    just_len = max(len(x[0]) for x in info)
     info_text = textwrap.indent(
-        "\n".join("%s: %s" % (k.ljust(8), v) for k, v in info),
+        "\n".join("%s: %s" % (k.ljust(just_len), v) for k, v in info),
         "    ")
     hub.info("Token info:")
     hub.line(info_text)
@@ -136,6 +157,9 @@ def token_list(hub, args):
     hub.info("Tokens for '%s':" % user)
     for token_id, token_info in tokens:
         hub.info("    %s" % token_id)
+        if "restrictions" in token_info:
+            restrictions = ", ".join(token_info["restrictions"])
+            hub.line("        restrictions: %s" % restrictions)
 
 
 def token_login_arguments(parser):

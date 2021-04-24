@@ -103,18 +103,24 @@ class TokenUtility:
     def token_user_id(self, macaroon):
         return macaroon.identifier.decode("ascii").rsplit("-", 1)
 
+    def extended_expiration_allowed(self, request):
+        allowed = request.registry["xom"].config.restrict_modify
+        if allowed is None:
+            allowed = {'root'}
+        return request.authenticated_userid in allowed
+
     def get_expires_restriction(self, request):
         default_expires = time.time() + 31536000  # one year by default
-        data = request.POST
+        if request.body:
+            data = request.json_body
+        else:
+            data = {}
         if "expires" in data:
             expires = data["expires"]
         else:
             expires = default_expires
         if expires == "never":
-            allowed = request.registry["xom"].config.restrict_modify
-            if allowed is None:
-                allowed = {'root'}
-            if request.authenticated_userid not in allowed:
+            if not self.extended_expiration_allowed(request):
                 apireturn(403, "Not allowed to create token with no expiration")
         else:
             try:
@@ -123,7 +129,7 @@ class TokenUtility:
                 apireturn(400, "Invalid value '%s' for expiration" % expires)
             if expires <= time.time():
                 apireturn(400, "Can't set expiration before current time")
-            if expires > default_expires:
+            if expires > default_expires and not self.extended_expiration_allowed(request):
                 apireturn(403, "Not allowed to set expiration to more than one year")
             expires = "%s" % expires
         return ExpiresRestriction(expires)
@@ -132,13 +138,20 @@ class TokenUtility:
         tokens_info = {}
         userdict = user.get(credentials=True)
         for token_id, token_info in userdict.get("tokens", {}).items():
-            tokens_info[token_id] = dict()
+            if isinstance(token_info, dict):
+                token_info = dict(token_info)
+            else:
+                token_info = dict()
+            token_info.pop("key", None)
+            tokens_info[token_id] = token_info
         return tokens_info
 
     def new_token(self, user, restrictions=()):
         token_user = user.name
+        restrictions = [x.dump() for x in restrictions]
         token_info = dict(
-            key=secrets.token_urlsafe(32))
+            key=secrets.token_urlsafe(32),
+            restrictions=restrictions)
         with user.key.update() as userdict:
             tokens = userdict.setdefault("tokens", {})
             while 1:
@@ -151,7 +164,7 @@ class TokenUtility:
             key=self.derive_key(token_info["key"]),
             version=pymacaroons.MACAROON_V2)
         for restriction in restrictions:
-            macaroon.add_first_party_caveat(restriction.dump())
+            macaroon.add_first_party_caveat(restriction)
         return macaroon.serialize()
 
     def remove_token(self, user, token_id):
