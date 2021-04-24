@@ -235,3 +235,29 @@ def test_login_deleted_token(capfd, devpi):
     devpi("token-login", "--token", token)
     (out, err) = capfd.readouterr()
     assert ("The token id %s doesn't exist" % token_id) in out
+
+
+def test_token_for_other_user_forbidden(capfd, devpi, devpi_username):
+    other_user = devpi_username + "_other"
+    devpi("user", "-c", other_user, "password=123", "email=123")
+    devpi("token-create", "--user", other_user)
+    (out, err) = capfd.readouterr()
+    assert "403 Forbidden: Access was denied to this resource." in out
+    assert "Unauthorized: user_token_create failed permission check" in out
+
+
+def test_root_user_can_create_other_tokens(capfd, devpi, devpi_username):
+    from devpi_tokens.client import pymacaroons
+    devpi("login", "root", "--password", "")
+    (out, err) = capfd.readouterr()
+    assert "logged in 'root'" in out
+    devpi("token-create", "-u", devpi_username)
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    assert token_user == devpi_username
+    devpi("token-list", "-u", devpi_username)
+    (out, err) = capfd.readouterr()
+    assert ("Tokens for '%s':" % token_user) in out
+    assert "    %s" % token_id in out

@@ -20,6 +20,12 @@ def add_token_args(parser):
              "appear in log files etc")
 
 
+def add_user_arg(parser):
+    parser.add_argument(
+        "-u", "--user", action="store", default=None,
+        help="user name to use instead of currently logged in")
+
+
 def get_token_from_args(hub, args, use_getpass=True):
     if args.file:
         if args.file == "-":
@@ -34,6 +40,18 @@ def get_token_from_args(hub, args, use_getpass=True):
         return args.token
     elif use_getpass:
         return getpass("token: ")
+
+
+def get_user_from_args(hub, args):
+    user = getattr(args, "user", None)
+    if user is None:
+        user = hub.current.get_auth_user()
+    return user
+
+
+def get_user_url_from_args(hub, args):
+    user = get_user_from_args(hub, args)
+    return hub.current.get_user_url(user).asdir()
 
 
 def get_token_macaroon(hub, token):
@@ -51,21 +69,23 @@ def get_macaroon_user_id(hub, macaroon):
 
 
 def token_create_arguments(parser):
-    """ Create a token for current user.
+    """ Create a token for user.
     """
+    add_user_arg(parser)
 
 
 def token_create(hub, args):
     hub.requires_login()
-    url = hub.current.get_user_url().asdir().joinpath('+token-create')
+    url = get_user_url_from_args(hub, args).joinpath('+token-create')
     r = hub.http_api("post", url, type="token-info")
     token = r.result["token"]
     hub.line(token)
 
 
 def token_delete_arguments(parser):
-    """ Delete a token for current user.
+    """ Delete a token for user.
     """
+    add_user_arg(parser)
     parser.add_argument(
         "token_id", action="store",
         help="the id of the token to be deleted")
@@ -73,7 +93,7 @@ def token_delete_arguments(parser):
 
 def token_delete(hub, args):
     hub.requires_login()
-    url = hub.current.get_user_url().asdir().joinpath('+tokens', args.token_id)
+    url = get_user_url_from_args(hub, args).joinpath('+tokens', args.token_id)
     r = hub.http_api("delete", url)
     hub.line(r.json_get("message"))
 
@@ -99,14 +119,15 @@ def token_inspect(hub, args):
 
 
 def token_list_arguments(parser):
-    """ List tokens for current user.
+    """ List tokens for user.
     """
+    add_user_arg(parser)
 
 
 def token_list(hub, args):
     hub.requires_login()
-    user = hub.current.get_auth_user()
-    url = hub.current.get_user_url().asdir().joinpath('+tokens')
+    user = get_user_from_args(hub, args)
+    url = get_user_url_from_args(hub, args).joinpath('+tokens')
     r = hub.http_api("get", url, type="tokens-info")
     tokens = sorted(r.result["tokens"].items())
     if not tokens:
