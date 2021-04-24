@@ -11,5 +11,6 @@ def test_commands(capsys):
     (out, err) = capsys.readouterr()
     assert e.value.code == 0
     assert 'token-create' in out
+    assert 'token-delete' in out
     assert 'token-inspect' in out
     assert 'token-login' in out

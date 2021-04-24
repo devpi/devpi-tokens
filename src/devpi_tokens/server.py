@@ -3,6 +3,7 @@ from functools import lru_cache
 from pluggy import HookimplMarker
 from pyramid.authorization import Everyone
 from pyramid.httpexceptions import HTTPForbidden
+from pyramid.httpexceptions import HTTPNotFound
 from pyramid.util import is_nonstr_iter
 import argon2
 import base64
@@ -75,6 +76,13 @@ class TokenUtility:
             version=pymacaroons.MACAROON_V2)
         return macaroon.serialize()
 
+    def remove_token(self, user, token_id):
+        tokens = user.get(credentials=True).get("tokens", {})
+        if token_id not in tokens:
+            raise HTTPNotFound("No token with id %s" % token_id)
+        with user.key.update() as userdict:
+            del userdict["tokens"][token_id]
+
     def verify(self, macaroon, token_info):
         key = self.derive_key(token_info["key"])
         return self.verifier.verify(macaroon, key)
@@ -118,7 +126,7 @@ def devpiserver_get_identity(request, credentials):
         raise HTTPForbidden("User for token doesn't exist")
     tokens = user.get(credentials=True).get("tokens", {})
     if token_id not in tokens:
-        raise HTTPForbidden("The token id doesn't exist")
+        raise HTTPForbidden("The token id %s doesn't exist" % token_id)
     try:
         tu.verify(macaroon, tokens[token_id])
     except Exception:  # https://github.com/ecordell/pymacaroons/issues/50
@@ -146,6 +154,7 @@ def devpiserver_auth_denials(request, acl, user, stage):
 def includeme(config):
     config.add_request_method(devpi_token_utility, reify=True)
     config.add_route("user-token-create", "/{user}/+token-create")
+    config.add_route("user-token-delete", "/{user}/+tokens/{id}")
     config.scan("devpi_tokens.views")
 
 

@@ -63,6 +63,21 @@ def token_create(hub, args):
     hub.line(token)
 
 
+def token_delete_arguments(parser):
+    """ Delete a token for current user.
+    """
+    parser.add_argument(
+        "token_id", action="store",
+        help="the id of the token to be deleted")
+
+
+def token_delete(hub, args):
+    hub.requires_login()
+    url = hub.current.get_user_url().asdir().joinpath('+tokens', args.token_id)
+    r = hub.http_api("delete", url)
+    hub.line(r.json_get("message"))
+
+
 def token_inspect_arguments(parser):
     """ Inspect a given token.
     """
@@ -109,5 +124,6 @@ def token_login(hub, args):
 def devpiclient_subcommands():
     return [
         (token_create_arguments, "token-create", "devpi_tokens.client:token_create"),
+        (token_delete_arguments, "token-delete", "devpi_tokens.client:token_delete"),
         (token_inspect_arguments, "token-inspect", "devpi_tokens.client:token_inspect"),
         (token_login_arguments, "token-login", "devpi_tokens.client:token_login")]

@@ -195,3 +195,24 @@ def test_login_with_token_as_password_user_permissions(capfd, devpi, devpi_usern
     (out, err) = capfd.readouterr()
     assert '401 Unauthorized' in out
     assert 'could not be authenticated' in out
+
+
+def test_login_deleted_token(capfd, devpi):
+    from devpi_tokens.client import pymacaroons
+    devpi("token-create")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    devpi("token-delete", token_id)
+    (out, err) = capfd.readouterr()
+    assert ("token %s deleted" % token_id) in out
+    devpi("logout")
+    (out, err) = capfd.readouterr()
+    assert "login information deleted" in out
+    devpi("use")
+    (out, err) = capfd.readouterr()
+    assert "not logged in" in out
+    devpi("token-login", "--token", token)
+    (out, err) = capfd.readouterr()
+    assert ("The token id %s doesn't exist" % token_id) in out

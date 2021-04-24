@@ -1,4 +1,5 @@
 from devpi_common.url import URL
+import pymacaroons
 import pytest
 try:
     from devpi_server import __version__  # noqa
@@ -151,6 +152,18 @@ def test_login_with_token_as_password_and_mismatched_user(mapp, testapp):
         expect_errors=True)
     assert r.status_code == 401
     assert "could not be authenticated" in r.json['message']
+
+
+def test_token_delete(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath("+token-create").url
+    r = testapp.post(url)
+    token = r.json["result"]["token"]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
+    url = URL(api.index).joinpath("+tokens", token_id).url
+    r = testapp.delete(url)
+    assert r.json["message"] == "token %s deleted" % token_id
 
 
 def test_token_user_permissions(mapp, testapp):

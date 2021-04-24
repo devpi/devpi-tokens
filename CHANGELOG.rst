@@ -3,6 +3,8 @@
 
 - unify command naming by using prefix
 
+- add ``token-delete`` command
+
 
 0.3.0 (Unreleased)
 ==================
