@@ -10,6 +10,8 @@
 - allow ``root`` or users from ``--restrict-modify`` to create tokens for
   other users
 
+- add expiration to tokens
+
 
 0.3.0 (Unreleased)
 ==================

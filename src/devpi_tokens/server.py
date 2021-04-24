@@ -1,4 +1,5 @@
 from devpi_common.types import cached_property
+from devpi_server.views import apireturn
 from functools import lru_cache
 from pluggy import HookimplMarker
 from pyramid.authorization import Everyone
@@ -9,6 +10,8 @@ import argon2
 import base64
 import pymacaroons
 import secrets
+import time
+import traceback
 
 
 server_hookimpl = HookimplMarker("devpiserver")
@@ -18,6 +21,45 @@ def generate_token_id():
     return "".join(
         secrets.choice("abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         for x in range(8))
+
+
+class InvalidMacaroon(Exception):
+    pass
+
+
+class Caveat:
+    def __init__(self, request, verifier):
+        self.request = request
+        self.verifier = verifier
+
+    def __call__(self, predicate):
+        raise InvalidMacaroon()
+
+
+class V1Caveat(Caveat):
+    def verify_expires(self, value):
+        try:
+            value = int(value)
+        except Exception:
+            value = 0
+        if time.time() >= value:
+            raise InvalidMacaroon("Token expired at %s" % value)
+        return True
+
+    def __call__(self, predicate):
+        (key, value) = predicate.split("=", 1)
+        verify = getattr(self, "verify_%s" % key, None)
+        if verify is None:
+            raise InvalidMacaroon("Unknown caveat '%s'" % key)
+        return verify(value)
+
+
+class ExpiresRestriction:
+    def __init__(self, value):
+        self.value = value
+
+    def dump(self):
+        return "expires=%s" % self.value
 
 
 class TokenUtility:
@@ -59,6 +101,24 @@ class TokenUtility:
     def token_user_id(self, macaroon):
         return macaroon.identifier.decode("ascii").rsplit("-", 1)
 
+    def get_expires_restriction(self, request):
+        default_expires = time.time() + 31536000  # one year by default
+        data = request.POST
+        if "expires" in data:
+            expires = data["expires"]
+        else:
+            expires = default_expires
+        try:
+            expires = int(expires)
+        except ValueError:
+            apireturn(400, "Invalid value '%s' for expiration" % expires)
+        if expires <= time.time():
+            apireturn(400, "Can't set expiration before current time")
+        if expires > default_expires:
+            apireturn(403, "Not allowed to set expiration to more than one year")
+        expires = "%s" % expires
+        return ExpiresRestriction(expires)
+
     def get_tokens_info(self, user):
         tokens_info = {}
         userdict = user.get(credentials=True)
@@ -66,7 +126,7 @@ class TokenUtility:
             tokens_info[token_id] = dict()
         return tokens_info
 
-    def new_token(self, user):
+    def new_token(self, user, restrictions=()):
         token_user = user.name
         token_info = dict(
             key=secrets.token_urlsafe(32))
@@ -81,6 +141,8 @@ class TokenUtility:
             identifier="%s-%s" % (token_user, token_id),
             key=self.derive_key(token_info["key"]),
             version=pymacaroons.MACAROON_V2)
+        for restriction in restrictions:
+            macaroon.add_first_party_caveat(restriction.dump())
         return macaroon.serialize()
 
     def remove_token(self, user, token_id):
@@ -89,8 +151,9 @@ class TokenUtility:
         with user.key.update() as userdict:
             del userdict["tokens"][token_id]
 
-    def verify(self, macaroon, token_info):
+    def verify(self, request, macaroon, token_info):
         key = self.derive_key(token_info["key"])
+        self.verifier.satisfy_general(V1Caveat(request, self.verifier))
         return self.verifier.verify(macaroon, key)
 
 
@@ -134,9 +197,10 @@ def devpiserver_get_identity(request, credentials):
     if token_id not in tokens:
         raise HTTPForbidden("The token id %s doesn't exist" % token_id)
     try:
-        tu.verify(macaroon, tokens[token_id])
-    except Exception:  # https://github.com/ecordell/pymacaroons/issues/50
-        raise HTTPForbidden("Exception during token verification")
+        tu.verify(request, macaroon, tokens[token_id])
+    except Exception as e:  # https://github.com/ecordell/pymacaroons/issues/50
+        msg = "\n".join(traceback.format_exception_only(e.__class__, e))
+        raise HTTPForbidden("Exception during token verification: %s" % msg)
     return TokenIdentity(token_user, credentials[1])
 
 

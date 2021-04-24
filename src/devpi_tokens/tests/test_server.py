@@ -181,3 +181,35 @@ def test_token_user_permissions(mapp, testapp):
     # as well as deletion
     r = testapp.delete('/' + api.user, headers=headers, expect_errors=True)
     assert r.status_code == 403
+
+
+def test_create_token_expiration(mapp, testapp):
+    import time
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    # invalid
+    r = testapp.post(url, dict(expires="invalid"), code=400)
+    assert r.json["message"] == "Invalid value 'invalid' for expiration"
+    # not before current time
+    r = testapp.post(url, dict(expires=10), code=400)
+    assert r.json["message"] == "Can't set expiration before current time"
+    # not more than a year
+    r = testapp.post(url, dict(expires=int(time.time() + 31536001)), code=403)
+    assert r.json["message"] == "Not allowed to set expiration to more than one year"
+    # just 10 seconds
+    r = testapp.post(url, dict(expires=int(time.time() + 10)))
+
+
+def test_token_expiration(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    # add a shorter expiration to a new derived token
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon.add_first_party_caveat("expires=10")
+    r = testapp.xget(
+        403,
+        URL(api.index).joinpath('+api').url,
+        headers=dict(Authorization="Bearer %s" % macaroon.serialize()))
+    assert "InvalidMacaroon: Token expired at 10" in r.text
