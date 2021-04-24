@@ -2,6 +2,7 @@ from devpi_common.types import cached_property
 from functools import lru_cache
 from pluggy import HookimplMarker
 from pyramid.authorization import Everyone
+from pyramid.httpexceptions import HTTPForbidden
 from pyramid.util import is_nonstr_iter
 import argon2
 import base64
@@ -110,18 +111,18 @@ def devpiserver_get_identity(request, credentials):
         # if token isn't a valid macaroon, then we don't care
         return None
     if credentials[0] is not None and credentials[0] != token_user:
-        return None
+        raise HTTPForbidden("Token doesn't match user name")
     model = request.registry["xom"].model
     user = model.get_user(token_user)
     if user is None:
-        return None
+        raise HTTPForbidden("User for token doesn't exist")
     tokens = user.get(credentials=True).get("tokens", {})
     if token_id not in tokens:
-        return None
+        raise HTTPForbidden("The token id doesn't exist")
     try:
         tu.verify(macaroon, tokens[token_id])
-    except Exception:
-        return None
+    except Exception:  # https://github.com/ecordell/pymacaroons/issues/50
+        raise HTTPForbidden("Exception during token verification")
     return TokenIdentity(token_user, credentials[1])
 
 

@@ -73,6 +73,7 @@ def test_get_identity(makerequest, xom):
 
 def test_auth_request(makerequest, xom):
     from pyramid.authentication import b64encode
+    from pyramid.httpexceptions import HTTPForbidden
     import secrets
     request = makerequest("/")
     assert request.authenticated_userid is None
@@ -106,7 +107,10 @@ def test_auth_request(makerequest, xom):
         basic = b64encode(basic_auth).decode('ascii')
         request = makerequest("/")
         request.headers["Authorization"] = "Basic %s" % basic
-        assert request.authenticated_userid is None
+        with pytest.raises(HTTPForbidden) as e:
+            request.authenticated_userid
+        assert e.value.code == 403
+        assert e.value.args == ("Token doesn't match user name",)
         basic_auth = "bar:foo"
         basic = b64encode(basic_auth).decode('ascii')
         request = makerequest("/")
