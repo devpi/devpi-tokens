@@ -163,6 +163,25 @@ def test_token_create(capfd, devpi):
     assert token_user.startswith("user")
 
 
+def test_token_list(capfd, devpi):
+    from devpi_tokens.client import pymacaroons
+    devpi("token-create")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    devpi("token-list")
+    (out, err) = capfd.readouterr()
+    assert ("Tokens for '%s':" % token_user) in out
+    assert "    %s" % token_id in out
+    devpi("token-delete", token_id)
+    (out, err) = capfd.readouterr()
+    assert ("token %s deleted" % token_id) in out
+    devpi("token-list")
+    (out, err) = capfd.readouterr()
+    assert ("No tokens for '%s'" % token_user) in out
+
+
 def test_token_login(capfd, devpi):
     devpi("token-create")
     (out, err) = capfd.readouterr()

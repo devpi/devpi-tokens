@@ -22,3 +22,14 @@ def user_token_delete(context, request):
     token_id = request.matchdict['id']
     tu.remove_token(context.user, token_id)
     apireturn(200, "token %s deleted" % token_id)
+
+
+@view_config(
+    route_name="user-tokens",
+    request_method="GET",
+    permission="user_modify")
+def user_tokens_info(context, request):
+    tu = request.devpi_token_utility
+    result = dict(
+        tokens=tu.get_tokens_info(context.user))
+    apireturn(200, type="tokens-info", result=result)

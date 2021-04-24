@@ -98,6 +98,25 @@ def token_inspect(hub, args):
     hub.line(info_text)
 
 
+def token_list_arguments(parser):
+    """ List tokens for current user.
+    """
+
+
+def token_list(hub, args):
+    hub.requires_login()
+    user = hub.current.get_auth_user()
+    url = hub.current.get_user_url().asdir().joinpath('+tokens')
+    r = hub.http_api("get", url, type="tokens-info")
+    tokens = sorted(r.result["tokens"].items())
+    if not tokens:
+        hub.info("No tokens for '%s'" % user)
+        return
+    hub.info("Tokens for '%s':" % user)
+    for token_id, token_info in tokens:
+        hub.info("    %s" % token_id)
+
+
 def token_login_arguments(parser):
     """ Login using a token.
     """
@@ -126,4 +145,5 @@ def devpiclient_subcommands():
         (token_create_arguments, "token-create", "devpi_tokens.client:token_create"),
         (token_delete_arguments, "token-delete", "devpi_tokens.client:token_delete"),
         (token_inspect_arguments, "token-inspect", "devpi_tokens.client:token_inspect"),
+        (token_list_arguments, "token-list", "devpi_tokens.client:token_list"),
         (token_login_arguments, "token-login", "devpi_tokens.client:token_login")]

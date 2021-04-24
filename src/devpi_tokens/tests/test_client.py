@@ -13,4 +13,5 @@ def test_commands(capsys):
     assert 'token-create' in out
     assert 'token-delete' in out
     assert 'token-inspect' in out
+    assert 'token-list' in out
     assert 'token-login' in out

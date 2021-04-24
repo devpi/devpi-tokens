@@ -59,6 +59,13 @@ class TokenUtility:
     def token_user_id(self, macaroon):
         return macaroon.identifier.decode("ascii").rsplit("-", 1)
 
+    def get_tokens_info(self, user):
+        tokens_info = {}
+        userdict = user.get(credentials=True)
+        for token_id, token_info in userdict.get("tokens", {}).items():
+            tokens_info[token_id] = dict()
+        return tokens_info
+
     def new_token(self, user):
         token_user = user.name
         token_info = dict(
@@ -77,8 +84,7 @@ class TokenUtility:
         return macaroon.serialize()
 
     def remove_token(self, user, token_id):
-        tokens = user.get(credentials=True).get("tokens", {})
-        if token_id not in tokens:
+        if token_id not in self.get_tokens_info(user):
             raise HTTPNotFound("No token with id %s" % token_id)
         with user.key.update() as userdict:
             del userdict["tokens"][token_id]
@@ -155,6 +161,7 @@ def includeme(config):
     config.add_request_method(devpi_token_utility, reify=True)
     config.add_route("user-token-create", "/{user}/+token-create")
     config.add_route("user-token-delete", "/{user}/+tokens/{id}")
+    config.add_route("user-tokens", "/{user}/+tokens")
     config.scan("devpi_tokens.views")
 
 

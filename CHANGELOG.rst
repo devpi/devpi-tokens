@@ -5,6 +5,8 @@
 
 - add ``token-delete`` command
 
+- add ``token-list`` command
+
 
 0.3.0 (Unreleased)
 ==================
