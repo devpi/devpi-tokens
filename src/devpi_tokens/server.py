@@ -38,11 +38,13 @@ class Caveat:
 
 class V1Caveat(Caveat):
     def verify_expires(self, value):
+        if value == "never":
+            return True
         try:
-            value = int(value)
+            expires = int(value)
         except Exception:
-            value = 0
-        if time.time() >= value:
+            expires = 0
+        if time.time() >= expires:
             raise InvalidMacaroon("Token expired at %s" % value)
         return True
 
@@ -108,15 +110,22 @@ class TokenUtility:
             expires = data["expires"]
         else:
             expires = default_expires
-        try:
-            expires = int(expires)
-        except ValueError:
-            apireturn(400, "Invalid value '%s' for expiration" % expires)
-        if expires <= time.time():
-            apireturn(400, "Can't set expiration before current time")
-        if expires > default_expires:
-            apireturn(403, "Not allowed to set expiration to more than one year")
-        expires = "%s" % expires
+        if expires == "never":
+            allowed = request.registry["xom"].config.restrict_modify
+            if allowed is None:
+                allowed = {'root'}
+            if request.authenticated_userid not in allowed:
+                apireturn(403, "Not allowed to create token with no expiration")
+        else:
+            try:
+                expires = int(expires)
+            except ValueError:
+                apireturn(400, "Invalid value '%s' for expiration" % expires)
+            if expires <= time.time():
+                apireturn(400, "Can't set expiration before current time")
+            if expires > default_expires:
+                apireturn(403, "Not allowed to set expiration to more than one year")
+            expires = "%s" % expires
         return ExpiresRestriction(expires)
 
     def get_tokens_info(self, user):

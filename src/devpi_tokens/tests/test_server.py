@@ -198,6 +198,9 @@ def test_create_token_expiration(mapp, testapp):
     assert r.json["message"] == "Not allowed to set expiration to more than one year"
     # just 10 seconds
     r = testapp.post(url, dict(expires=int(time.time() + 10)))
+    # "never" not allowed by regular users
+    r = testapp.post(url, dict(expires="never"), code=403)
+    assert r.json["message"] == "Not allowed to create token with no expiration"
 
 
 def test_token_expiration(mapp, testapp):
@@ -213,3 +216,19 @@ def test_token_expiration(mapp, testapp):
         URL(api.index).joinpath('+api').url,
         headers=dict(Authorization="Bearer %s" % macaroon.serialize()))
     assert "InvalidMacaroon: Token expired at 10" in r.text
+
+
+def test_root_can_create_never_expiring_tokens(mapp, testapp):
+    api = mapp.create_and_use()
+    mapp.login("root", "")
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url, dict(expires="never"))
+    token = r.json['result']['token']
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
+    assert api.user == token_user
+    assert "cid expires=never\n" in macaroon.inspect()
+    testapp.xget(
+        200,
+        URL(api.index).joinpath('+api').url,
+        headers=dict(Authorization="Bearer %s" % token))

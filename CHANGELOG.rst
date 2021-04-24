@@ -8,7 +8,7 @@
 - add ``token-list`` command
 
 - allow ``root`` or users from ``--restrict-modify`` to create tokens for
-  other users
+  other users, and with no expiration
 
 - add expiration to tokens
 
