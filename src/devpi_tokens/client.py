@@ -83,7 +83,7 @@ def token_create(hub, args):
 
 
 def token_delete_arguments(parser):
-    """ Delete a token for user.
+    """ Delete a token for user. Any derived tokens will be invalidated as well.
     """
     add_user_arg(parser)
     parser.add_argument(
