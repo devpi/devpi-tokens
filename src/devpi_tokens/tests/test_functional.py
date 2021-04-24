@@ -153,9 +153,9 @@ def devpi(cmd_devpi, devpi_username, url_of_liveserver):
     return cmd_devpi
 
 
-def test_create_token(capfd, devpi):
+def test_token_create(capfd, devpi):
     import pymacaroons
-    devpi("create-token")
+    devpi("token-create")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
     macaroon = pymacaroons.Macaroon.deserialize(token)
@@ -164,7 +164,7 @@ def test_create_token(capfd, devpi):
 
 
 def test_token_login(capfd, devpi):
-    devpi("create-token")
+    devpi("token-create")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
     devpi("logout")
@@ -182,7 +182,7 @@ def test_token_login(capfd, devpi):
 
 
 def test_login_with_token_as_password_user_permissions(capfd, devpi, devpi_username):
-    devpi("create-token")
+    devpi("token-create")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
     devpi("logout")

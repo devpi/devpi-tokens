@@ -10,5 +10,6 @@ def test_commands(capsys):
         devpi.main.main(['devpi', '--help'])
     (out, err) = capsys.readouterr()
     assert e.value.code == 0
-    assert 'create-token' in out
+    assert 'token-create' in out
+    assert 'token-inspect' in out
     assert 'token-login' in out

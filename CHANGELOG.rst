@@ -1,3 +1,9 @@
+0.4.0 (Unreleased)
+==================
+
+- unify command naming by using prefix
+
+
 0.3.0 (Unreleased)
 ==================
 

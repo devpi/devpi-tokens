@@ -50,12 +50,12 @@ def get_macaroon_user_id(hub, macaroon):
         hub.fatal("Invalid token: %s" % "".join(traceback.format_exception_only(e.__class__, e)))
 
 
-def create_token_arguments(parser):
+def token_create_arguments(parser):
     """ Create a token for current user.
     """
 
 
-def create_token(hub, args):
+def token_create(hub, args):
     hub.requires_login()
     url = hub.current.get_user_url().asdir().joinpath('+token-create')
     r = hub.http_api("post", url, type="token-info")
@@ -63,13 +63,13 @@ def create_token(hub, args):
     hub.line(token)
 
 
-def inspect_token_arguments(parser):
+def token_inspect_arguments(parser):
     """ Inspect a given token.
     """
     add_token_args(parser)
 
 
-def inspect_token(hub, args):
+def token_inspect(hub, args):
     token = get_token_from_args(hub, args)
     macaroon = get_token_macaroon(hub, token)
     (token_user, token_id) = get_macaroon_user_id(hub, macaroon)
@@ -108,6 +108,6 @@ def token_login(hub, args):
 @client_hookimpl
 def devpiclient_subcommands():
     return [
-        (create_token_arguments, "create-token", "devpi_tokens.client:create_token"),
-        (inspect_token_arguments, "inspect-token", "devpi_tokens.client:inspect_token"),
+        (token_create_arguments, "token-create", "devpi_tokens.client:token_create"),
+        (token_inspect_arguments, "token-inspect", "devpi_tokens.client:token_inspect"),
         (token_login_arguments, "token-login", "devpi_tokens.client:token_login")]
