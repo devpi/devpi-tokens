@@ -12,6 +12,7 @@ def test_commands(capsys):
     assert e.value.code == 0
     assert 'token-create' in out
     assert 'token-delete' in out
+    assert 'token-derive' in out
     assert 'token-inspect' in out
     assert 'token-list' in out
     assert 'token-login' in out

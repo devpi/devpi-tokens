@@ -1,4 +1,7 @@
 from delta import parse as parse_delta
+from devpi_tokens.restrictions import ExpiresRestriction
+from devpi_tokens.restrictions import IndexesRestriction
+from devpi_tokens.restrictions import Restrictions
 from getpass import getpass
 from pluggy import HookimplMarker
 import datetime
@@ -22,6 +25,18 @@ def add_token_args(parser):
              "appear in log files etc")
 
 
+def add_restrictions_args(parser, expires_default):
+    parser.add_argument(
+        "-e", "--expires", action="store", default=expires_default,
+        help="expiration as epoch timestamp or delta with units: y(ear(s)), "
+             "m(onth(s)), w(eek(s)), d(ay(s)), h(our(s)), min(ute(s)) and "
+             "s(econd(s))")
+    parser.add_argument(
+        "-i", "--indexes", action="append", default=None,
+        help="comma separated list of indexes to limit the token to. "
+             "Can also be used multiple times to extend the list.")
+
+
 def add_user_arg(parser):
     parser.add_argument(
         "-u", "--user", action="store", default=None,
@@ -30,7 +45,7 @@ def add_user_arg(parser):
 
 def get_expires_from_args(hub, args):
     expires = args.expires
-    if expires != "never":
+    if expires is not None and expires != "never":
         try:
             expires = int(
                 (datetime.datetime.utcnow() + parse_delta(expires)).timestamp())
@@ -95,15 +110,7 @@ def token_create_arguments(parser):
     """ Create a token for user.
     """
     add_user_arg(parser)
-    parser.add_argument(
-        "-e", "--expires", action="store", default="1 year",
-        help="expiration as epoch timestamp or delta with units: y(ear(s)), "
-             "m(onth(s)), w(eek(s)), d(ay(s)), h(our(s)), min(ute(s)) and "
-             "s(econd(s))")
-    parser.add_argument(
-        "-i", "--indexes", action="append", default=None,
-        help="comma separated list of indexes to limit the token to. "
-             "Can also be used multiple times to extend the list.")
+    add_restrictions_args(parser, expires_default="1 year")
 
 
 def token_create(hub, args):
@@ -135,6 +142,35 @@ def token_delete(hub, args):
     url = get_user_url_from_args(hub, args).joinpath('+tokens', args.token_id)
     r = hub.http_api("delete", url)
     hub.line(r.json_get("message"))
+
+
+def token_derive_arguments(parser):
+    """ Derive a new token from an existing token with added restrictions.
+        No connection to the server required.
+        The new restrictions are validated one after another by the server
+        when the token is used for authentication.
+        It is not possible to remove existing restrictions,
+        only adding additional ones.
+    """
+    add_token_args(parser)
+    add_restrictions_args(parser, expires_default=None)
+
+
+def token_derive(hub, args):
+    restrictions = Restrictions()
+    expires = get_expires_from_args(hub, args)
+    if expires is not None:
+        restrictions.add(ExpiresRestriction(expires))
+    indexes = get_indexes_from_args(hub, args)
+    if indexes is not None:
+        restrictions.add(IndexesRestriction(indexes))
+    if not restrictions:
+        hub.fatal("No restrictions provided")
+    token = get_token_from_args(hub, args)
+    macaroon = get_token_macaroon(hub, token)
+    for restriction in restrictions:
+        macaroon.add_first_party_caveat(restriction.dump())
+    hub.line(macaroon.serialize())
 
 
 def token_inspect_arguments(parser):
@@ -212,6 +248,7 @@ def devpiclient_subcommands():
     return [
         (token_create_arguments, "token-create", "devpi_tokens.client:token_create"),
         (token_delete_arguments, "token-delete", "devpi_tokens.client:token_delete"),
+        (token_derive_arguments, "token-derive", "devpi_tokens.client:token_derive"),
         (token_inspect_arguments, "token-inspect", "devpi_tokens.client:token_inspect"),
         (token_list_arguments, "token-list", "devpi_tokens.client:token_list"),
         (token_login_arguments, "token-login", "devpi_tokens.client:token_login")]

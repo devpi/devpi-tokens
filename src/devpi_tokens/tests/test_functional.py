@@ -2,6 +2,7 @@ from contextlib import closing
 from devpi_common.url import URL
 from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
+from devpi_tokens.restrictions import get_restrictions_from_token
 from time import sleep
 import py
 import pytest
@@ -203,6 +204,35 @@ def test_token_create_indexes(capfd, devpi):
         "        restrictions:",
         "            expires=*",
         "            indexes=bar,foo,ham"])
+
+
+def test_token_derive(capfd, devpi):
+    devpi("token-create")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    devpi("token-derive", "--token", token)
+    (out, err) = capfd.readouterr()
+    assert "No restrictions provided" in out
+    devpi("token-derive", "--token", token, "-e", "1 day")
+    (out, err) = capfd.readouterr()
+    new_token = out.splitlines()[-1]
+    (expires, new_expires) = get_restrictions_from_token(new_token)
+    assert new_expires < expires
+    devpi("token-inspect", "--token", new_token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        "*restriction*: expires=*",
+        "*restriction*: expires=*"])
+    devpi("token-derive", "--token", token, "-i", "bar")
+    (out, err) = capfd.readouterr()
+    new_token = out.splitlines()[-1]
+    (expires, indexes) = get_restrictions_from_token(new_token)
+    assert indexes == IndexesRestriction(["bar"])
+    devpi("token-inspect", "--token", new_token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        "*restriction*: expires=*",
+        "*restriction*: indexes=bar"])
 
 
 def test_token_list(capfd, devpi):

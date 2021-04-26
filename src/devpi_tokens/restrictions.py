@@ -1,3 +1,4 @@
+from functools import total_ordering
 import pymacaroons
 import time
 
@@ -15,12 +16,16 @@ def restriction(name):
     return restriction
 
 
+@total_ordering
 class Restriction:
     def __init__(self, value):
         raise NotImplementedError
 
     def __eq__(self, other):
         return self.value == other.value
+
+    def __lt__(self, other):
+        return self.value < other.value
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.value)
@@ -74,6 +79,9 @@ class IndexesRestriction(ListRestriction):
 class Restrictions:
     def __init__(self):
         self._restrictions = []
+
+    def __bool__(self):
+        return bool(self._restrictions)
 
     def __getitem__(self, key):
         result = []

@@ -5,6 +5,8 @@
 
 - add ``token-delete`` command
 
+- add ``token-derive`` command
+
 - add ``token-list`` command
 
 - allow ``root`` or users from ``--restrict-modify`` to create tokens for
