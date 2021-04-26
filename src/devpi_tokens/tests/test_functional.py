@@ -1,5 +1,6 @@
 from contextlib import closing
 from devpi_common.url import URL
+from devpi_tokens.restrictions import get_restrictions_from_macaroon
 from time import sleep
 import py
 import pytest
@@ -175,6 +176,7 @@ def test_token_create(capfd, devpi):
     macaroon = pymacaroons.Macaroon.deserialize(token)
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert token_user.startswith("user")
+    assert get_restrictions_from_macaroon(macaroon).names == ["expires"]
 
 
 def test_token_list(capfd, devpi):

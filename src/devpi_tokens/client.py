@@ -28,6 +28,17 @@ def add_user_arg(parser):
         help="user name to use instead of currently logged in")
 
 
+def get_expires_from_args(hub, args):
+    expires = args.expires
+    if expires != "never":
+        try:
+            expires = int(
+                (datetime.datetime.utcnow() + parse_delta(expires)).timestamp())
+        except Exception:
+            hub.fatal("Can't parse expiration '%s'" % expires)
+    return expires
+
+
 def get_token_from_args(hub, args, use_getpass=True):
     if args.file:
         if args.file == "-":
@@ -84,13 +95,7 @@ def token_create_arguments(parser):
 def token_create(hub, args):
     hub.requires_login()
     url = get_user_url_from_args(hub, args).joinpath('+token-create')
-    expires = args.expires
-    if expires != "never":
-        try:
-            expires = int(
-                (datetime.datetime.utcnow() + parse_delta(expires)).timestamp())
-        except Exception:
-            hub.fatal("Can't parse expiration '%s'" % expires)
+    expires = get_expires_from_args(hub, args)
     r = hub.http_api(
         "post", url,
         kvdict=dict(

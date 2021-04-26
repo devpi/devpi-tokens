@@ -1,5 +1,4 @@
 from devpi_common.types import cached_property
-from devpi_server.views import apireturn
 from functools import lru_cache
 from pluggy import HookimplMarker
 from pyramid.authorization import Everyone
@@ -56,14 +55,6 @@ class V1Caveat(Caveat):
         return verify(value)
 
 
-class ExpiresRestriction:
-    def __init__(self, value):
-        self.value = value
-
-    def dump(self):
-        return "expires=%s" % self.value
-
-
 class TokenUtility:
     def __init__(self, xom):
         self.xom = xom
@@ -102,37 +93,6 @@ class TokenUtility:
 
     def token_user_id(self, macaroon):
         return macaroon.identifier.decode("ascii").rsplit("-", 1)
-
-    def extended_expiration_allowed(self, request):
-        allowed = request.registry["xom"].config.restrict_modify
-        if allowed is None:
-            allowed = {'root'}
-        return request.authenticated_userid in allowed
-
-    def get_expires_restriction(self, request):
-        default_expires = time.time() + 31536000  # one year by default
-        if request.body:
-            data = request.json_body
-        else:
-            data = {}
-        if "expires" in data:
-            expires = data["expires"]
-        else:
-            expires = default_expires
-        if expires == "never":
-            if not self.extended_expiration_allowed(request):
-                apireturn(403, "Not allowed to create token with no expiration")
-        else:
-            try:
-                expires = int(expires)
-            except ValueError:
-                apireturn(400, "Invalid value '%s' for expiration" % expires)
-            if expires <= time.time():
-                apireturn(400, "Can't set expiration before current time")
-            if expires > default_expires and not self.extended_expiration_allowed(request):
-                apireturn(403, "Not allowed to set expiration to more than one year")
-            expires = "%s" % expires
-        return ExpiresRestriction(expires)
 
     def get_tokens_info(self, user):
         tokens_info = {}

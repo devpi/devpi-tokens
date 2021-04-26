@@ -1,4 +1,5 @@
 from devpi_server.views import apireturn
+from devpi_tokens.restrictions import get_restrictions_from_request
 from pyramid.view import view_config
 
 
@@ -8,8 +9,7 @@ from pyramid.view import view_config
     permission="user_modify")
 def user_token_create(context, request):
     tu = request.devpi_token_utility
-    restrictions = [
-        tu.get_expires_restriction(request)]
+    restrictions = get_restrictions_from_request(request)
     result = dict(
         token=tu.new_token(context.user, restrictions))
     apireturn(200, type="token-info", result=result)

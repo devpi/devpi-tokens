@@ -1,4 +1,6 @@
 from devpi_common.url import URL
+from devpi_tokens.restrictions import ExpiresRestriction
+from devpi_tokens.restrictions import get_restrictions_from_macaroon
 import json
 import pymacaroons
 import pytest
@@ -199,6 +201,8 @@ def test_create_token_expiration(mapp, testapp):
     assert r.json["message"] == "Not allowed to set expiration to more than one year"
     # just 10 seconds
     r = testapp.post(url, json.dumps(dict(expires=int(time.time() + 10))))
+    macaroon = pymacaroons.Macaroon.deserialize(r.json["result"]["token"])
+    assert get_restrictions_from_macaroon(macaroon).names == ["expires"]
     # "never" not allowed by regular users
     r = testapp.post(url, json.dumps(dict(expires="never")), code=403)
     assert r.json["message"] == "Not allowed to create token with no expiration"
@@ -212,6 +216,8 @@ def test_token_expiration(mapp, testapp):
     # add a shorter expiration to a new derived token
     macaroon = pymacaroons.Macaroon.deserialize(token)
     macaroon.add_first_party_caveat("expires=10")
+    (orig_expires, new_expires) = get_restrictions_from_macaroon(macaroon)["expires"]
+    assert new_expires == ExpiresRestriction(10)
     r = testapp.xget(
         403,
         URL(api.index).joinpath('+api').url,
@@ -228,7 +234,8 @@ def test_root_can_create_never_expiring_tokens(mapp, testapp):
     macaroon = pymacaroons.Macaroon.deserialize(token)
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert api.user == token_user
-    assert "cid expires=never\n" in macaroon.inspect()
+    (expires,) = get_restrictions_from_macaroon(macaroon)["expires"]
+    assert expires == ExpiresRestriction("never")
     testapp.xget(
         200,
         URL(api.index).joinpath('+api').url,
