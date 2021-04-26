@@ -1,5 +1,6 @@
 from contextlib import closing
 from devpi_common.url import URL
+from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
 from time import sleep
 import py
@@ -179,6 +180,31 @@ def test_token_create(capfd, devpi):
     assert get_restrictions_from_macaroon(macaroon).names == ["expires"]
 
 
+def test_token_create_indexes(capfd, devpi):
+    import pymacaroons
+    devpi("token-create", "-i", "foo", "--indexes=bar , ham")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
+    assert token_user.startswith("user")
+    restrictions = get_restrictions_from_macaroon(macaroon)
+    assert restrictions.names == ["expires", "indexes"]
+    (indexes,) = restrictions["indexes"]
+    assert indexes == IndexesRestriction(["bar", "foo", "ham"])
+    devpi("token-inspect", "--token", token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*restriction*: indexes=bar,foo,ham")
+    devpi("token-list")
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        "    %s" % token_id,
+        "        restrictions:",
+        "            expires=*",
+        "            indexes=bar,foo,ham"])
+
+
 def test_token_list(capfd, devpi):
     from devpi_tokens.client import pymacaroons
     devpi("token-create")
@@ -305,7 +331,9 @@ def test_root_create_expiration(capfd, devpi, devpi_username):
     out.fnmatch_lines("*id*: %s" % token_id)
     out.fnmatch_lines("*restriction*: expires=*")
     devpi("token-list", "-u", devpi_username)
-    (out, err) = capfd.readouterr()
-    assert ("Tokens for '%s':" % token_user) in out
-    assert "    %s" % token_id in out
-    assert "restrictions: expires=never" in out
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        "Tokens for '%s':" % token_user,
+        "    %s" % token_id,
+        "        restrictions:",
+        "            expires=never"])

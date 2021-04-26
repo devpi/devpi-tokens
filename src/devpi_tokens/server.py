@@ -29,6 +29,9 @@ class InvalidMacaroon(Exception):
 class Caveat:
     def __init__(self, request, verifier):
         self.request = request
+        self.context = getattr(request, "context", None)
+        if self.context is None:
+            self.context = getattr(request, "root", None)
         self.verifier = verifier
 
     def __call__(self, predicate):
@@ -45,6 +48,19 @@ class V1Caveat(Caveat):
             expires = 0
         if time.time() >= expires:
             raise InvalidMacaroon("Token expired at %s" % value)
+        return True
+
+    def verify_indexes(self, value):
+        if self.context is None:
+            return True
+        username = self.context.username
+        index = self.context.index
+        if username is None or index is None:
+            return True
+        indexname = "%s/%s" % (username, index)
+        indexes = {x.strip() for x in value.split(',')}
+        if indexname not in indexes:
+            raise InvalidMacaroon("Token denied access to index '%s'" % indexname)
         return True
 
     def __call__(self, predicate):

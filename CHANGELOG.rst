@@ -12,6 +12,8 @@
 
 - add expiration to tokens
 
+- add indexes restriction to tokens
+
 
 0.3.0 (Unreleased)
 ==================

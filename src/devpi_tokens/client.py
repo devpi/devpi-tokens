@@ -39,6 +39,16 @@ def get_expires_from_args(hub, args):
     return expires
 
 
+def get_indexes_from_args(hub, args):
+    if args.indexes is None:
+        return None
+    indexes = []
+    for item in args.indexes:
+        for index in item.split(','):
+            indexes.append(index.strip())
+    return sorted(indexes)
+
+
 def get_token_from_args(hub, args, use_getpass=True):
     if args.file:
         if args.file == "-":
@@ -90,16 +100,22 @@ def token_create_arguments(parser):
         help="expiration as epoch timestamp or delta with units: y(ear(s)), "
              "m(onth(s)), w(eek(s)), d(ay(s)), h(our(s)), min(ute(s)) and "
              "s(econd(s))")
+    parser.add_argument(
+        "-i", "--indexes", action="append", default=None,
+        help="comma separated list of indexes to limit the token to. "
+             "Can also be used multiple times to extend the list.")
 
 
 def token_create(hub, args):
     hub.requires_login()
     url = get_user_url_from_args(hub, args).joinpath('+token-create')
     expires = get_expires_from_args(hub, args)
+    indexes = get_indexes_from_args(hub, args)
     r = hub.http_api(
         "post", url,
         kvdict=dict(
-            expires=expires),
+            expires=expires,
+            indexes=indexes),
         type="token-info")
     token = r.result["token"]
     hub.line(token)
@@ -163,8 +179,10 @@ def token_list(hub, args):
     for token_id, token_info in tokens:
         hub.info("    %s" % token_id)
         if "restrictions" in token_info:
-            restrictions = ", ".join(token_info["restrictions"])
-            hub.line("        restrictions: %s" % restrictions)
+            hub.line("        restrictions:")
+            hub.line(textwrap.indent(
+                "\n".join(token_info["restrictions"]),
+                "            "))
 
 
 def token_login_arguments(parser):

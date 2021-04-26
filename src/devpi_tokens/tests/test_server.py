@@ -1,6 +1,8 @@
 from devpi_common.url import URL
 from devpi_tokens.restrictions import ExpiresRestriction
+from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
+from devpi_tokens.restrictions import get_restrictions_from_token
 import json
 import pymacaroons
 import pytest
@@ -240,3 +242,54 @@ def test_root_can_create_never_expiring_tokens(mapp, testapp):
         200,
         URL(api.index).joinpath('+api').url,
         headers=dict(Authorization="Bearer %s" % token))
+
+
+def test_create_token_indexes(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    # not a list
+    r = testapp.post(url, json.dumps(dict(indexes="")), code=400)
+    # list with empty item
+    r = testapp.post(url, json.dumps(dict(indexes=[""])), code=400)
+    assert r.json["message"] == "Empty item at position 1 in indexes list"
+    # list with non string item
+    r = testapp.post(url, json.dumps(dict(indexes=[0])), code=400)
+    assert r.json["message"] == "Item at position 1 is not a string in indexes list"
+    # sorting
+    r = testapp.post(url, json.dumps(dict(indexes=["foo", "bar"])))
+    (expires, indexes) = get_restrictions_from_token(r.json['result']['token'])
+    assert indexes == IndexesRestriction(["bar", "foo"])
+
+
+def test_token_indexes(mapp, testapp):
+    api1 = mapp.create_and_use()
+    api2 = mapp.create_index('other')
+    url = URL(api1.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    # add an indexes limitation to a new derived token
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon.add_first_party_caveat("indexes=%s" % api1.stagename)
+    # we can patch our first index
+    assert testapp.get(api1.index).json["result"]["volatile"] is True
+    r = testapp.patch_json(
+        api1.index, ["volatile=False"],
+        headers=dict(Authorization="Bearer %s" % macaroon.serialize()))
+    assert r.status_code == 200
+    assert testapp.get(api1.index).json["result"]["volatile"] is False
+    # but not the second one
+    assert testapp.get(api2.index).json["result"]["volatile"] is True
+    r = testapp.patch_json(
+        api2.index, ["volatile=False"],
+        expect_errors=True,
+        headers=dict(Authorization="Bearer %s" % macaroon.serialize()))
+    assert r.status_code == 403
+    assert (
+        "InvalidMacaroon: Token denied access to index 'user1/other'") in r.text
+    assert testapp.get(api2.index).json["result"]["volatile"] is True
+    # the token without limitation can
+    r = testapp.patch_json(
+        api2.index, ["volatile=False"],
+        headers=dict(Authorization="Bearer %s" % token))
+    assert r.status_code == 200
+    assert testapp.get(api2.index).json["result"]["volatile"] is False

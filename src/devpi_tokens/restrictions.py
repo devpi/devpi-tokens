@@ -22,6 +22,9 @@ class Restriction:
     def __eq__(self, other):
         return self.value == other.value
 
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, self.value)
+
     def dump(self):
         return "%s=%s" % (self.name, self.value)
 
@@ -35,6 +38,37 @@ class ExpiresRestriction(Restriction):
             except ValueError:
                 raise ValueError("Invalid value '%s' for expiration" % value)
         self.value = value
+
+
+class ListRestriction(Restriction):
+    def validate_item(self, index, item):
+        return
+
+    def __init__(self, value):
+        if not isinstance(value, list):
+            raise ValueError("The %s restriction must be a list" % self.name)
+        for index, item in enumerate(value, 1):
+            self.validate_item(index, item)
+        self.value = value
+
+    def dump(self):
+        return "%s=%s" % (self.name, ",".join(self.value))
+
+
+@restriction("indexes")
+class IndexesRestriction(ListRestriction):
+    def validate_item(self, index, item):
+        super().validate_item(index, item)
+        if not isinstance(item, str):
+            raise ValueError("Item at position %s is not a string in %s list" % (
+                index, self.name))
+        if not item:
+            raise ValueError("Empty item at position %s in %s list" % (
+                index, self.name))
+
+    def __init__(self, value):
+        super().__init__(value)
+        self.value = sorted(self.value)
 
 
 class Restrictions:
@@ -100,10 +134,23 @@ def get_expires_restriction_from_request(request):
     return restriction
 
 
+def get_indexes_restriction_from_request(request):
+    indexes = get_request_value(request, IndexesRestriction.name)
+    if indexes is not None:
+        try:
+            restriction = IndexesRestriction(indexes)
+        except ValueError as e:
+            request.apireturn(400, e.args[0])
+        return restriction
+    return
+
+
 def get_restrictions_from_request(request):
     restrictions = Restrictions()
     restrictions.add(
         get_expires_restriction_from_request(request))
+    restrictions.add(
+        get_indexes_restriction_from_request(request))
     return restrictions
 
 
@@ -112,6 +159,8 @@ def get_restrictions_from_macaroon(macaroon):
     for caveat in macaroon.caveats:
         (key, value) = caveat.to_dict()['cid'].split("=", 1)
         restriction_cls = available_restrictions[key]
+        if issubclass(restriction_cls, ListRestriction):
+            value = value.split(',')
         restrictions.add(restriction_cls(value))
     return restrictions
 
