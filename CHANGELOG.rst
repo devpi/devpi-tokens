@@ -16,6 +16,8 @@
 
 - add indexes restriction to tokens
 
+- add projects restriction to tokens
+
 
 0.3.0 (Unreleased)
 ==================

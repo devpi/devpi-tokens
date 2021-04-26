@@ -22,7 +22,7 @@ class Restriction:
         raise NotImplementedError
 
     def __eq__(self, other):
-        return self.value == other.value
+        return self.__class__ == other.__class__ and self.value == other.value
 
     def __lt__(self, other):
         return self.value < other.value
@@ -62,6 +62,22 @@ class ListRestriction(Restriction):
 
 @restriction("indexes")
 class IndexesRestriction(ListRestriction):
+    def validate_item(self, index, item):
+        super().validate_item(index, item)
+        if not isinstance(item, str):
+            raise ValueError("Item at position %s is not a string in %s list" % (
+                index, self.name))
+        if not item:
+            raise ValueError("Empty item at position %s in %s list" % (
+                index, self.name))
+
+    def __init__(self, value):
+        super().__init__(value)
+        self.value = sorted(self.value)
+
+
+@restriction("projects")
+class ProjectsRestriction(ListRestriction):
     def validate_item(self, index, item):
         super().validate_item(index, item)
         if not isinstance(item, str):
@@ -153,12 +169,25 @@ def get_indexes_restriction_from_request(request):
     return
 
 
+def get_projects_restriction_from_request(request):
+    projects = get_request_value(request, ProjectsRestriction.name)
+    if projects is not None:
+        try:
+            restriction = ProjectsRestriction(projects)
+        except ValueError as e:
+            request.apireturn(400, e.args[0])
+        return restriction
+    return
+
+
 def get_restrictions_from_request(request):
     restrictions = Restrictions()
     restrictions.add(
         get_expires_restriction_from_request(request))
     restrictions.add(
         get_indexes_restriction_from_request(request))
+    restrictions.add(
+        get_projects_restriction_from_request(request))
     return restrictions
 
 

@@ -1,6 +1,7 @@
 from delta import parse as parse_delta
 from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
+from devpi_tokens.restrictions import ProjectsRestriction
 from devpi_tokens.restrictions import Restrictions
 from getpass import getpass
 from pluggy import HookimplMarker
@@ -35,6 +36,10 @@ def add_restrictions_args(parser, expires_default):
         "-i", "--indexes", action="append", default=None,
         help="comma separated list of indexes to limit the token to. "
              "Can also be used multiple times to extend the list.")
+    parser.add_argument(
+        "-p", "--projects", action="append", default=None,
+        help="comma separated list of projects to limit the token to. "
+             "Can also be used multiple times to extend the list.")
 
 
 def add_user_arg(parser):
@@ -62,6 +67,16 @@ def get_indexes_from_args(hub, args):
         for index in item.split(','):
             indexes.append(index.strip())
     return sorted(indexes)
+
+
+def get_projects_from_args(hub, args):
+    if args.projects is None:
+        return None
+    projects = []
+    for item in args.projects:
+        for index in item.split(','):
+            projects.append(index.strip())
+    return sorted(projects)
 
 
 def get_token_from_args(hub, args, use_getpass=True):
@@ -118,11 +133,13 @@ def token_create(hub, args):
     url = get_user_url_from_args(hub, args).joinpath('+token-create')
     expires = get_expires_from_args(hub, args)
     indexes = get_indexes_from_args(hub, args)
+    projects = get_projects_from_args(hub, args)
     r = hub.http_api(
         "post", url,
         kvdict=dict(
             expires=expires,
-            indexes=indexes),
+            indexes=indexes,
+            projects=projects),
         type="token-info")
     token = r.result["token"]
     hub.line(token)
@@ -164,6 +181,9 @@ def token_derive(hub, args):
     indexes = get_indexes_from_args(hub, args)
     if indexes is not None:
         restrictions.add(IndexesRestriction(indexes))
+    projects = get_projects_from_args(hub, args)
+    if projects is not None:
+        restrictions.add(ProjectsRestriction(projects))
     if not restrictions:
         hub.fatal("No restrictions provided")
     token = get_token_from_args(hub, args)

@@ -3,6 +3,7 @@ from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
 from devpi_tokens.restrictions import get_restrictions_from_token
+from pluggy import HookimplMarker
 import json
 import pymacaroons
 import pytest
@@ -22,7 +23,10 @@ else:
     from test_devpi_server.conftest import storage_info  # noqa
     from test_devpi_server.conftest import testapp  # noqa
 
-    (makexom, mapp, testapp)  # shut up pyflakes
+    (makexom, makemapp, maketestapp, mapp, testapp)  # shut up pyflakes
+
+
+devpiserver_hookimpl = HookimplMarker("devpiserver")
 
 
 @pytest.fixture
@@ -293,3 +297,73 @@ def test_token_indexes(mapp, testapp):
         headers=dict(Authorization="Bearer %s" % token))
     assert r.status_code == 200
     assert testapp.get(api2.index).json["result"]["volatile"] is False
+
+
+def test_token_projects(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    # add a projects limitation to a new derived token
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon.add_first_party_caveat("projects=pkg,hello")
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
+    content_hello = mapp.makepkg("hello-1.0.tar.gz", b"hello", "hello", "1.0")
+    mapp.upload_file_pypi("hello-1.0.tar.gz", content_hello, "hello", "1.0")
+    content_pkg = mapp.makepkg("pkg-1.0.tar.gz", b"pkg", "pkg", "1.0")
+    mapp.upload_file_pypi("pkg-1.0.tar.gz", content_pkg, "pkg", "1.0")
+    # can't upload other
+    content_other = mapp.makepkg("other-1.0.tar.gz", b"other", "other", "1.0")
+    mapp.upload_file_pypi("other-1.0.tar.gz", content_other, "other", "1.0", code=403)
+    # but original token can
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], token)
+    mapp.upload_file_pypi("other-1.0.tar.gz", content_other, "other", "1.0")
+
+
+def test_token_projects_forbidden_plugin(makemapp, maketestapp, makexom):
+    import devpi_tokens.server
+
+    class Plugin:
+        @devpiserver_hookimpl
+        def devpiserver_authcheck_forbidden(self, request):
+            # we only need to trigger user verification here to let token
+            # validation run
+            request.authenticated_userid
+
+    plugin = Plugin()
+    xom = makexom(plugins=[devpi_tokens.server, plugin])
+    testapp = maketestapp(xom)
+    mapp = makemapp(testapp)
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    # add a projects limitation to a new derived token
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon.add_first_party_caveat("projects=pkg,hello")
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
+    content_hello = mapp.makepkg("hello-1.0.tar.gz", b"hello", "hello", "1.0")
+    mapp.upload_file_pypi("hello-1.0.tar.gz", content_hello, "hello", "1.0")
+    content_pkg = mapp.makepkg("pkg-1.0.tar.gz", b"pkg", "pkg", "1.0")
+    mapp.upload_file_pypi("pkg-1.0.tar.gz", content_pkg, "pkg", "1.0")
+    # can't upload other
+    content_other = mapp.makepkg("other-1.0.tar.gz", b"other", "other", "1.0")
+    mapp.upload_file_pypi("other-1.0.tar.gz", content_other, "other", "1.0", code=403)
+    assert mapp.getpkglist() == ["hello", "pkg"]
+    # but original token can
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], token)
+    mapp.upload_file_pypi("other-1.0.tar.gz", content_other, "other", "1.0")
+    assert mapp.getpkglist() == ["hello", "other", "pkg"]
+    # try accessing project data via /+authcheck,
+    # as plain devpi-server doesn't check permissions here
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
+    testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/pkg" % api.stagename})
+    testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/+simple/pkg" % api.stagename})
+    testapp.xget(403, "/+authcheck", headers={"X-Original-URI": "/%s/other" % api.stagename})
+    testapp.xget(403, "/+authcheck", headers={"X-Original-URI": "/%s/+simple/other" % api.stagename})
+    # original token can
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], token)
+    testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/pkg" % api.stagename})
+    testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/+simple/pkg" % api.stagename})
+    testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/other" % api.stagename})
+    testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/+simple/other" % api.stagename})

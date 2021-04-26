@@ -1,6 +1,7 @@
 from contextlib import closing
 from devpi_common.url import URL
 from devpi_tokens.restrictions import IndexesRestriction
+from devpi_tokens.restrictions import ProjectsRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
 from devpi_tokens.restrictions import get_restrictions_from_token
 from time import sleep
@@ -204,6 +205,31 @@ def test_token_create_indexes(capfd, devpi):
         "        restrictions:",
         "            expires=*",
         "            indexes=bar,foo,ham"])
+
+
+def test_token_create_projects(capfd, devpi):
+    import pymacaroons
+    devpi("token-create", "-p", "foo", "--projects=bar , ham")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
+    assert token_user.startswith("user")
+    restrictions = get_restrictions_from_macaroon(macaroon)
+    assert restrictions.names == ["expires", "projects"]
+    (projects,) = restrictions["projects"]
+    assert projects == ProjectsRestriction(["bar", "foo", "ham"])
+    devpi("token-inspect", "--token", token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*restriction*: projects=bar,foo,ham")
+    devpi("token-list")
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        "    %s" % token_id,
+        "        restrictions:",
+        "            expires=*",
+        "            projects=bar,foo,ham"])
 
 
 def test_token_derive(capfd, devpi):

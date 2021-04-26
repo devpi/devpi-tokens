@@ -1,4 +1,5 @@
 from devpi_common.types import cached_property
+from devpi_common.validation import normalize_name
 from functools import lru_cache
 from pluggy import HookimplMarker
 from pyramid.authorization import Everyone
@@ -63,6 +64,22 @@ class V1Caveat(Caveat):
             raise InvalidMacaroon("Token denied access to index '%s'" % indexname)
         return True
 
+    def verify_projects(self, value):
+        if self.context is None:
+            return True
+        username = self.context.username
+        index = self.context.index
+        project = self.context.project
+        if username is not None and index is not None and project is None:
+            if self.request.method == "POST" and ":action" in self.request.POST:
+                project = normalize_name(self.request.POST["name"])
+        if project is None:
+            return True
+        projects = {normalize_name(x.strip()) for x in value.split(',')}
+        if project not in projects:
+            raise InvalidMacaroon("Token denied access to project '%s'" % project)
+        return True
+
     def __call__(self, predicate):
         (key, value) = predicate.split("=", 1)
         verify = getattr(self, "verify_%s" % key, None)
@@ -74,7 +91,6 @@ class V1Caveat(Caveat):
 class TokenUtility:
     def __init__(self, xom):
         self.xom = xom
-        self.verifier = pymacaroons.Verifier()
         self.derive_key = lru_cache(maxsize=128)(self._derive_key)
 
     @cached_property
@@ -151,8 +167,9 @@ class TokenUtility:
 
     def verify(self, request, macaroon, token_info):
         key = self.derive_key(token_info["key"])
-        self.verifier.satisfy_general(V1Caveat(request, self.verifier))
-        return self.verifier.verify(macaroon, key)
+        verifier = pymacaroons.Verifier()
+        verifier.satisfy_general(V1Caveat(request, verifier))
+        return verifier.verify(macaroon, key)
 
 
 def devpi_token_utility(request):
