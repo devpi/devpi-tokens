@@ -221,7 +221,7 @@ def devpiserver_get_identity(request, credentials):
     try:
         tu.verify(request, macaroon, tokens[token_id])
     except Exception as e:  # https://github.com/ecordell/pymacaroons/issues/50
-        msg = "\n".join(traceback.format_exception_only(e.__class__, e))
+        msg = "".join(traceback.format_exception_only(e.__class__, e))
         raise HTTPForbidden("Exception during token verification: %s" % msg)
     return TokenIdentity(token_user, credentials[1])
 
