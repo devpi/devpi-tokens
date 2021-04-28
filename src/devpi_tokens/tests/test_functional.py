@@ -370,26 +370,36 @@ def test_root_create_expiration(capfd, devpi, devpi_username):
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
     macaroon = pymacaroons.Macaroon.deserialize(token)
-    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    (token_user, token_id1) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     assert token_user == devpi_username
     devpi("token-inspect", "--token", token)
     (out, err) = capfd.readouterr_matcher()
-    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*id*: %s" % token_id1)
     out.fnmatch_lines("*restriction*: expires=never")
     devpi("token-create", "-u", devpi_username, "-e", "3 years")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
     macaroon = pymacaroons.Macaroon.deserialize(token)
-    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
+    (token_user, token_id2) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     assert token_user == devpi_username
     devpi("token-inspect", "--token", token)
     (out, err) = capfd.readouterr_matcher()
-    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*id*: %s" % token_id2)
     out.fnmatch_lines("*restriction*: expires=*")
     devpi("token-list", "-u", devpi_username)
     (out, err) = capfd.readouterr_matcher()
-    out.fnmatch_lines([
-        "Tokens for '%s':" % token_user,
-        "    %s" % token_id,
-        "        restrictions:",
-        "            expires=never"])
+    token_lines = {
+        token_id1: [
+            "    %s" % token_id1,
+            "        restrictions:",
+            "            expires=never"],
+        token_id2: [
+            "    %s" % token_id2,
+            "        restrictions:",
+            "            expires=*"]}
+    lines = ["Tokens for '%s':" % token_user]
+    # the output of token-list is ordered by token id, so we have
+    # to have the test in the correct order as well
+    for k, v in sorted(token_lines.items()):
+        lines.extend(v)
+    out.fnmatch_lines(lines)
