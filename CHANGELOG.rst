@@ -12,6 +12,8 @@
 - allow ``root`` or users from ``--restrict-modify`` to create tokens for
   other users, and with no expiration
 
+- add allowed restriction to tokens
+
 - add expiration to tokens
 
 - add indexes restriction to tokens

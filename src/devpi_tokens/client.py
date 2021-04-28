@@ -1,4 +1,5 @@
 from delta import parse as parse_delta
+from devpi_tokens.restrictions import AllowedRestriction
 from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import ProjectsRestriction
@@ -28,6 +29,10 @@ def add_token_args(parser):
 
 def add_restrictions_args(parser, expires_default):
     parser.add_argument(
+        "-a", "--allowed", action="append", default=None,
+        help="comma separated list of allowed permissions. "
+             "Can also be used multiple times to extend the list.")
+    parser.add_argument(
         "-e", "--expires", action="store", default=expires_default,
         help="expiration as epoch timestamp or delta with units: y(ear(s)), "
              "m(onth(s)), w(eek(s)), d(ay(s)), h(our(s)), min(ute(s)) and "
@@ -46,6 +51,16 @@ def add_user_arg(parser):
     parser.add_argument(
         "-u", "--user", action="store", default=None,
         help="user name to use instead of currently logged in")
+
+
+def get_allowed_from_args(hub, args):
+    if args.allowed is None:
+        return None
+    allowed = []
+    for item in args.allowed:
+        for index in item.split(','):
+            allowed.append(index.strip())
+    return sorted(allowed)
 
 
 def get_expires_from_args(hub, args):
@@ -131,15 +146,22 @@ def token_create_arguments(parser):
 def token_create(hub, args):
     hub.requires_login()
     url = get_user_url_from_args(hub, args).joinpath('+token-create')
+    kvdict = {}
+    allowed = get_allowed_from_args(hub, args)
+    if allowed is not None:
+        kvdict["allowed"] = allowed
     expires = get_expires_from_args(hub, args)
+    if expires is not None:
+        kvdict["expires"] = expires
     indexes = get_indexes_from_args(hub, args)
+    if indexes is not None:
+        kvdict["indexes"] = indexes
     projects = get_projects_from_args(hub, args)
+    if projects is not None:
+        kvdict["projects"] = projects
     r = hub.http_api(
         "post", url,
-        kvdict=dict(
-            expires=expires,
-            indexes=indexes,
-            projects=projects),
+        kvdict=kvdict,
         type="token-info")
     token = r.result["token"]
     hub.line(token)
@@ -175,6 +197,9 @@ def token_derive_arguments(parser):
 
 def token_derive(hub, args):
     restrictions = Restrictions()
+    allowed = get_allowed_from_args(hub, args)
+    if allowed is not None:
+        restrictions.add(AllowedRestriction(allowed))
     expires = get_expires_from_args(hub, args)
     if expires is not None:
         restrictions.add(ExpiresRestriction(expires))

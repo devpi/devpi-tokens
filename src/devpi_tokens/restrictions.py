@@ -33,16 +33,32 @@ class Restriction:
     def dump(self):
         return "%s=%s" % (self.name, self.value)
 
+    def validate_against_request(self, request):
+        return
+
 
 @restriction("expires")
 class ExpiresRestriction(Restriction):
     def __init__(self, value):
+        self.default_expires = time.time() + 31536000  # one year by default
+        if value is None:
+            value = self.default_expires
         if value != "never":
             try:
                 value = int(value)
             except ValueError:
                 raise ValueError("Invalid value '%s' for expiration" % value)
         self.value = value
+
+    def validate_against_request(self, request):
+        if self.value == "never":
+            if not extended_expiration_allowed(request):
+                request.apireturn(403, "Not allowed to create token with no expiration")
+        else:
+            if self.value <= time.time():
+                request.apireturn(400, "Can't set expiration before current time")
+            if self.value > self.default_expires and not extended_expiration_allowed(request):
+                request.apireturn(403, "Not allowed to set expiration to more than one year")
 
 
 class ListRestriction(Restriction):
@@ -60,8 +76,11 @@ class ListRestriction(Restriction):
         return "%s=%s" % (self.name, ",".join(self.value))
 
 
-@restriction("indexes")
-class IndexesRestriction(ListRestriction):
+class StringListRestriction(ListRestriction):
+    def __init__(self, value):
+        super().__init__(value)
+        self.value = sorted(self.value)
+
     def validate_item(self, index, item):
         super().validate_item(index, item)
         if not isinstance(item, str):
@@ -71,25 +90,20 @@ class IndexesRestriction(ListRestriction):
             raise ValueError("Empty item at position %s in %s list" % (
                 index, self.name))
 
-    def __init__(self, value):
-        super().__init__(value)
-        self.value = sorted(self.value)
+
+@restriction("allowed")
+class AllowedRestriction(StringListRestriction):
+    pass
+
+
+@restriction("indexes")
+class IndexesRestriction(StringListRestriction):
+    pass
 
 
 @restriction("projects")
-class ProjectsRestriction(ListRestriction):
-    def validate_item(self, index, item):
-        super().validate_item(index, item)
-        if not isinstance(item, str):
-            raise ValueError("Item at position %s is not a string in %s list" % (
-                index, self.name))
-        if not item:
-            raise ValueError("Empty item at position %s in %s list" % (
-                index, self.name))
-
-    def __init__(self, value):
-        super().__init__(value)
-        self.value = sorted(self.value)
+class ProjectsRestriction(StringListRestriction):
+    pass
 
 
 class Restrictions:
@@ -117,19 +131,18 @@ class Restrictions:
             return
         self._restrictions.append(restriction)
 
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
     @property
     def names(self):
         return [x.name for x in self._restrictions]
 
-
-def get_request_value(request, key, default=None):
-    if request.body:
-        data = request.json_body
-    else:
-        data = {}
-    if key in data:
-        return data[key]
-    return default
+    def __repr__(self):
+        return "[%s]" % ", ".join(repr(x) for x in self)
 
 
 def extended_expiration_allowed(request):
@@ -139,55 +152,23 @@ def extended_expiration_allowed(request):
     return request.authenticated_userid in allowed
 
 
-def get_expires_restriction_from_request(request):
-    default_expires = time.time() + 31536000  # one year by default
-    expires = get_request_value(
-        request, ExpiresRestriction.name, default_expires)
-    try:
-        restriction = ExpiresRestriction(expires)
-    except ValueError as e:
-        request.apireturn(400, e.args[0])
-    if restriction.value == "never":
-        if not extended_expiration_allowed(request):
-            request.apireturn(403, "Not allowed to create token with no expiration")
-    else:
-        if restriction.value <= time.time():
-            request.apireturn(400, "Can't set expiration before current time")
-        if restriction.value > default_expires and not extended_expiration_allowed(request):
-            request.apireturn(403, "Not allowed to set expiration to more than one year")
-    return restriction
-
-
-def get_indexes_restriction_from_request(request):
-    indexes = get_request_value(request, IndexesRestriction.name)
-    if indexes is not None:
-        try:
-            restriction = IndexesRestriction(indexes)
-        except ValueError as e:
-            request.apireturn(400, e.args[0])
-        return restriction
-    return
-
-
-def get_projects_restriction_from_request(request):
-    projects = get_request_value(request, ProjectsRestriction.name)
-    if projects is not None:
-        try:
-            restriction = ProjectsRestriction(projects)
-        except ValueError as e:
-            request.apireturn(400, e.args[0])
-        return restriction
-    return
-
-
 def get_restrictions_from_request(request):
     restrictions = Restrictions()
-    restrictions.add(
-        get_expires_restriction_from_request(request))
-    restrictions.add(
-        get_indexes_restriction_from_request(request))
-    restrictions.add(
-        get_projects_restriction_from_request(request))
+    if request.body:
+        data = dict(request.json_body)
+    else:
+        data = {}
+    data.setdefault("expires", None)
+    for key, value in sorted(data.items()):
+        if key not in available_restrictions:
+            request.apireturn(400, "Unknown restriction '%s'." % key)
+        restriction_cls = available_restrictions[key]
+        try:
+            restriction = restriction_cls(value)
+        except ValueError as e:
+            request.apireturn(400, e.args[0])
+        restriction.validate_against_request(request)
+        restrictions.add(restriction)
     return restrictions
 
 

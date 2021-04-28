@@ -248,6 +248,30 @@ def test_root_can_create_never_expiring_tokens(mapp, testapp):
         headers=dict(Authorization="Bearer %s" % token))
 
 
+def test_token_allowed(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url, json.dumps(dict(
+        allowed=["pkg_read", "pypi_submit"])))
+    token = r.json['result']['token']
+    # add additional allowed limitation to a new derived token
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon.add_first_party_caveat("allowed=pkg_read,toxresult_upload")
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
+    # can't upload other
+    content_other = mapp.makepkg("other-1.0.tar.gz", b"other", "other", "1.0")
+    mapp.upload_file_pypi("other-1.0.tar.gz", content_other, "other", "1.0", set_whitelist=False, code=403)
+    # but original token can
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], token)
+    mapp.upload_file_pypi("other-1.0.tar.gz", content_other, "other", "1.0", set_whitelist=False)
+    # neither one can upload toxresult, because allowed restrictions are
+    # intersected, so a derived token can't expand permissions
+    (path,) = mapp.get_release_paths("other")
+    mapp.upload_toxresult(path, b"{}", code=403)
+    mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
+    mapp.upload_toxresult(path, b"{}", code=403)
+
+
 def test_create_token_indexes(mapp, testapp):
     api = mapp.create_and_use()
     url = URL(api.index).joinpath('+token-create').url

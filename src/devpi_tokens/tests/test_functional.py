@@ -1,5 +1,6 @@
 from contextlib import closing
 from devpi_common.url import URL
+from devpi_tokens.restrictions import AllowedRestriction
 from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import ProjectsRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
@@ -180,6 +181,31 @@ def test_token_create(capfd, devpi):
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert token_user.startswith("user")
     assert get_restrictions_from_macaroon(macaroon).names == ["expires"]
+
+
+def test_token_create_allowed(capfd, devpi):
+    import pymacaroons
+    devpi("token-create", "-a", "pkg_read", "--allowed=toxresult_upload , pypi_submit")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
+    assert token_user.startswith("user")
+    restrictions = get_restrictions_from_macaroon(macaroon)
+    assert restrictions.names == ["allowed", "expires"]
+    (allowed,) = restrictions["allowed"]
+    assert allowed == AllowedRestriction(["toxresult_upload", "pkg_read", "pypi_submit"])
+    devpi("token-inspect", "--token", token)
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines("*id*: %s" % token_id)
+    out.fnmatch_lines("*restriction*: allowed=pkg_read,pypi_submit,toxresult_upload")
+    devpi("token-list")
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        "    %s" % token_id,
+        "        restrictions:",
+        "            allowed=pkg_read,pypi_submit,toxresult_upload",
+        "            expires=*"])
 
 
 def test_token_create_indexes(capfd, devpi):

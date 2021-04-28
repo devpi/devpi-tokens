@@ -1,5 +1,6 @@
 from devpi_common.types import cached_property
 from devpi_common.validation import normalize_name
+from devpi_tokens.restrictions import get_restrictions_from_token
 from functools import lru_cache
 from pluggy import HookimplMarker
 from pyramid.authorization import Everyone
@@ -40,6 +41,9 @@ class Caveat:
 
 
 class V1Caveat(Caveat):
+    def verify_allowed(self, value):
+        return True
+
     def verify_expires(self, value):
         if value == "never":
             return True
@@ -181,10 +185,18 @@ def devpi_token_utility(request):
 
 
 class TokenIdentity:
-    def __init__(self, username, macaroon):
+    def __init__(self, username, token):
         self.username = username
         self.groups = []
-        self.macaroon = macaroon
+        self.token = token
+
+    # @cached_property
+    # def macaroon(self):
+    #     return pymacaroons.Macaroon.deserialize(self.token)
+
+    @cached_property
+    def restrictions(self):
+        return get_restrictions_from_token(self.token)
 
 
 @server_hookimpl
@@ -227,13 +239,24 @@ def devpiserver_auth_denials(request, acl, user, stage):
     # with a token the user can't be modified, so for instance no new
     # tokens can be created
     denials = set()
+    allowed = None
+    for restriction in identity.restrictions.get("allowed", ()):
+        if allowed is None:
+            allowed = set(restriction.value)
+        else:
+            allowed = allowed.intersection(restriction.value)
     for ace_action, ace_principal, ace_permissions in acl:
         if not is_nonstr_iter(ace_permissions):
             ace_permissions = [ace_permissions]
         for ace_permission in ace_permissions:
-            if ace_permission.startswith("user_"):
-                denials.add((Everyone, ace_permission))
-    return denials
+            if ace_permission in denials:
+                continue
+            deny = (
+                ace_permission.startswith("user_")
+                or (allowed is not None and ace_permission not in allowed))
+            if deny:
+                denials.add(ace_permission)
+    return {(Everyone, x) for x in denials}
 
 
 def includeme(config):
