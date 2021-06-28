@@ -9,6 +9,8 @@
 
 - show helpful error when ``delta`` dependency is missing
 
+- fix timezone issue in expiration calculation
+
 
 0.4.0 (Unreleased)
 ==================

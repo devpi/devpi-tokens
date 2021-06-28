@@ -108,11 +108,14 @@ def get_expires_from_args(hub, args):
             '''Use: pip install "devpi-tokens[client]"''')
     expires = args.expires
     if expires is not None and expires != "never":
+        utcnow = datetime.datetime.now(datetime.timezone.utc)
         try:
-            expires = int(
-                (datetime.datetime.utcnow() + parse_delta(expires)).timestamp())
-        except Exception:
-            hub.fatal("Can't parse expiration '%s'" % expires)
+            expires_delta = parse_delta(expires)
+        except Exception as e:
+            hub.fatal("Can't parse expiration '%s': %s" % (
+                expires,
+                get_formatted_exception(e)))
+        expires = int((utcnow + expires_delta).timestamp())
     return expires
 
 

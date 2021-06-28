@@ -16,3 +16,15 @@ def test_commands(capsys):
     assert 'token-inspect' in out
     assert 'token-list' in out
     assert 'token-login' in out
+
+
+def test_get_expires_from_args():
+    from devpi_tokens.client import get_expires_from_args
+    import time
+
+    class args:
+        expires = '10s'
+
+    now = int(time.time())
+    result = get_expires_from_args(None, args)
+    assert 9 <= (result - now) <= 11
