@@ -11,6 +11,8 @@
 
 - fix timezone issue in expiration calculation
 
+- show human readable expiration if possible
+
 
 0.4.0 (Unreleased)
 ==================

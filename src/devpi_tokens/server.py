@@ -9,6 +9,7 @@ from pyramid.httpexceptions import HTTPNotFound
 from pyramid.util import is_nonstr_iter
 import argon2
 import base64
+import datetime
 import pymacaroons
 import secrets
 import time
@@ -52,7 +53,15 @@ class V1Caveat(Caveat):
         except Exception:
             expires = 0
         if time.time() >= expires:
-            raise InvalidMacaroon("Token expired at %s" % value)
+            msg = "Token expired at %s" % value
+            try:
+                msg = "%s (%s)" % (
+                    msg,
+                    datetime.datetime.fromtimestamp(
+                        expires, tz=datetime.timezone.utc))
+            except Exception:
+                pass
+            raise InvalidMacaroon(msg)
         return True
 
     def verify_indexes(self, value):

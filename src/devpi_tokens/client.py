@@ -298,7 +298,16 @@ def token_inspect(hub, args):
         ('user', token_user),
         ('id', token_id)]
     for caveat in macaroon.caveats:
-        info.append(('restriction', caveat.to_dict()['cid']))
+        (key, value) = caveat.to_dict()['cid'].split("=", 1)
+        if key == 'expires':
+            try:
+                value = "%s (%s)" % (
+                    value,
+                    datetime.datetime.fromtimestamp(
+                        int(value), tz=datetime.timezone.utc).astimezone())
+            except Exception:
+                pass
+        info.append(('restriction', '%s=%s' % (key, value)))
     just_len = max(len(x[0]) for x in info)
     info_text = textwrap.indent(
         "\n".join("%s: %s" % (k.ljust(just_len), v) for k, v in info),
