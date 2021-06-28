@@ -7,6 +7,7 @@ from devpi_tokens.restrictions import Restrictions
 from getpass import getpass
 from pluggy import HookimplMarker
 import datetime
+import os
 import py
 import pymacaroons
 import sys
@@ -41,6 +42,12 @@ def add_token_args(parser):
         "--token", action="store", default=None,
         help="the token as a parameter, not recommended as it can easily "
              "appear in log files etc")
+
+
+def add_output_args(parser):
+    parser.add_argument(
+        "-o", "--output", action="store", default=None,
+        help="file the token will be written to instead of stdout")
 
 
 def add_restrictions_args(parser, expires_default):
@@ -161,10 +168,25 @@ def get_macaroon_user_id(hub, macaroon):
         hub.fatal("Invalid token: %s" % "".join(traceback.format_exception_only(e.__class__, e)))
 
 
+def write_token(hub, args, token):
+    if args.output:
+        if os.path.exists(args.output):
+            msg = (
+                "There already exists a file at '%s'.\n"
+                "Do you want to overwrite it?" % args.output)
+            if not hub.ask_confirm(msg):
+                hub.fatal("Aborted")
+        with open(args.output, 'wb') as f:
+            f.write(token.encode('ascii'))
+    else:
+        hub.line(token)
+
+
 def token_create_arguments(parser):
     """ Create a token for user.
     """
     add_user_arg(parser)
+    add_output_args(parser)
     add_restrictions_args(parser, expires_default="1 year")
 
 
@@ -189,7 +211,7 @@ def token_create(hub, args):
         kvdict=kvdict,
         type="token-info")
     token = r.result["token"]
-    hub.line(token)
+    write_token(hub, args, token)
 
 
 def token_delete_arguments(parser):
@@ -217,6 +239,7 @@ def token_derive_arguments(parser):
         only adding additional ones.
     """
     add_token_args(parser)
+    add_output_args(parser)
     add_restrictions_args(parser, expires_default=None)
 
 
@@ -240,7 +263,8 @@ def token_derive(hub, args):
     macaroon = get_token_macaroon(hub, token)
     for restriction in restrictions:
         macaroon.add_first_party_caveat(restriction.dump())
-    hub.line(macaroon.serialize())
+    token = macaroon.serialize()
+    write_token(hub, args, token)
 
 
 def token_inspect_arguments(parser):

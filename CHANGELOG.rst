@@ -3,6 +3,8 @@
 
 - ask for confirmation when using unknown permissions
 
+- add option to write generated token to a file
+
 
 0.4.0 (Unreleased)
 ==================
