@@ -54,7 +54,11 @@ def add_restrictions_args(parser, expires_default):
     parser.add_argument(
         "-a", "--allowed", action="append", default=None,
         help="comma separated list of allowed permissions. "
-             "Can also be used multiple times to extend the list.")
+             "Can also be used multiple times to extend the list. "
+             "The permission names are checked against a list of known permissions from devpi-server. "
+             "Since plugins might add further permissions, "
+             "unknown ones can still be added after confirmation. "
+             "The known permissions from devpi-server are: %s" % ', '.join(sorted(known_permissions)))
     parser.add_argument(
         "-e", "--expires", action="store", default=expires_default,
         help="expiration as epoch timestamp or delta with units: y(ear(s)), "

@@ -5,6 +5,8 @@
 
 - add option to write generated token to a file
 
+- show list of known devpi-server permissions in help
+
 
 0.4.0 (Unreleased)
 ==================
