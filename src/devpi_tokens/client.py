@@ -1,4 +1,3 @@
-from delta import parse as parse_delta
 from devpi_tokens.restrictions import AllowedRestriction
 from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
@@ -100,6 +99,13 @@ def get_allowed_from_args(hub, args):
 
 
 def get_expires_from_args(hub, args):
+    try:
+        from delta import parse as parse_delta
+    except ImportError:
+        hub.fatal(
+            '''The 'delta' module is missing. '''
+            '''Did you install devpi-tokens without the 'client' extras? '''
+            '''Use: pip install "devpi-tokens[client]"''')
     expires = args.expires
     if expires is not None and expires != "never":
         try:

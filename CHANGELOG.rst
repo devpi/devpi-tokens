@@ -7,6 +7,8 @@
 
 - show list of known devpi-server permissions in help
 
+- show helpful error when ``delta`` dependency is missing
+
 
 0.4.0 (Unreleased)
 ==================
