@@ -116,6 +116,10 @@ def get_expires_from_args(hub, args):
     return expires
 
 
+def get_formatted_exception(e):
+    return "".join(traceback.format_exception_only(e.__class__, e)).strip()
+
+
 def get_indexes_from_args(hub, args):
     if args.indexes is None:
         return None
@@ -168,14 +172,14 @@ def get_token_macaroon(hub, token):
     try:
         return pymacaroons.Macaroon.deserialize(token)
     except Exception as e:
-        hub.fatal("Invalid token: %s" % "".join(traceback.format_exception_only(e.__class__, e)))
+        hub.fatal("Invalid token: %s" % get_formatted_exception(e))
 
 
 def get_macaroon_user_id(hub, macaroon):
     try:
         return macaroon.identifier.decode("ascii").rsplit('-', 1)
     except Exception as e:
-        hub.fatal("Invalid token: %s" % "".join(traceback.format_exception_only(e.__class__, e)))
+        hub.fatal("Invalid token: %s" % get_formatted_exception(e))
 
 
 def write_token(hub, args, token):
