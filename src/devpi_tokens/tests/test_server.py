@@ -252,7 +252,7 @@ def test_token_allowed(mapp, testapp):
     api = mapp.create_and_use()
     url = URL(api.index).joinpath('+token-create').url
     r = testapp.post(url, json.dumps(dict(
-        allowed=["pkg_read", "pypi_submit"])))
+        allowed=["pkg_read", "upload"])))
     token = r.json['result']['token']
     # add additional allowed limitation to a new derived token
     macaroon = pymacaroons.Macaroon.deserialize(token)
