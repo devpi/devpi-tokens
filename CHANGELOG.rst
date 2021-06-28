@@ -1,3 +1,9 @@
+0.5.0 (Unreleased)
+==================
+
+- ask for confirmation when using unknown permissions
+
+
 0.4.0 (Unreleased)
 ==================
 

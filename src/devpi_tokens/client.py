@@ -17,6 +17,22 @@ import traceback
 client_hookimpl = HookimplMarker("devpiclient")
 
 
+known_permissions = frozenset((
+    'del_entry',
+    'del_project',
+    'del_verdata',
+    'index_create',
+    'index_delete',
+    'index_modify',
+    'pkg_read',
+    'toxresult_upload',
+    'upload',
+    'user_create',
+    'user_delete',
+    'user_login',
+    'user_modify'))
+
+
 def add_token_args(parser):
     parser.add_argument(
         "-f", "--file", action="store", default=None,
@@ -60,7 +76,16 @@ def get_allowed_from_args(hub, args):
     for item in args.allowed:
         for index in item.split(','):
             allowed.append(index.strip())
-    return sorted(allowed)
+    allowed = sorted(set(allowed))
+    unknown = sorted(
+        x for x in allowed if x not in known_permissions)
+    if unknown:
+        msg = (
+            "The following permissions are not known: %s\n"
+            "Are you sure you want to use them?" % ', '.join(unknown))
+        if not hub.ask_confirm(msg):
+            hub.fatal("Aborted")
+    return allowed
 
 
 def get_expires_from_args(hub, args):
