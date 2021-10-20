@@ -216,6 +216,15 @@ def devpiserver_get_identity(request, credentials):
             credentials = (None, authorization.params)
     if credentials is None:
         return None
+    if credentials[1] == "":
+        # the password is empty, so swap username and password
+        # to see if basic auth without a colon was used
+        credentials = (credentials[1], credentials[0])
+    if credentials[0] == "":
+        # the username is empty, so set it to None to allow token
+        # validation without user matching below
+        # this happens with basic auth with a leading colon
+        credentials = (None, credentials[1])
     try:
         tu = request.devpi_token_utility
         macaroon = tu.deserialize(credentials[1])

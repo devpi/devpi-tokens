@@ -1,3 +1,10 @@
+0.6.0 (Unreleased)
+==================
+
+- allow token to be used with basic authentication as username and no password,
+  or as password with no username
+
+
 0.5.0 (Unreleased)
 ==================
 

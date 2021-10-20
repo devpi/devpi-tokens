@@ -81,6 +81,33 @@ def test_get_identity(makerequest, xom):
         assert request.identity.groups == []
 
 
+def test_get_identity_basic_auth(makerequest, xom):
+    from devpi_tokens.server import TokenIdentity
+    from pyramid.authentication import b64encode
+    request = makerequest("/")
+    with xom.keyfs.transaction(write=True):
+        user = xom.model.create_user("foo", "")
+        token = request.devpi_token_utility.new_token(user)
+        # test with token as password and no username
+        basic_auth = ":%s" % token
+        basic = b64encode(basic_auth).decode('ascii')
+        request = makerequest("/")
+        request.headers["Authorization"] = "Basic %s" % basic
+        assert isinstance(request.identity, TokenIdentity)
+        assert request.identity.username == "foo"
+        assert request.identity.groups == []
+        assert request.authenticated_userid == "foo"
+        # test with token as username and no password
+        basic_auth = "%s:" % token
+        basic = b64encode(basic_auth).decode('ascii')
+        request = makerequest("/")
+        request.headers["Authorization"] = "Basic %s" % basic
+        assert isinstance(request.identity, TokenIdentity)
+        assert request.identity.username == "foo"
+        assert request.identity.groups == []
+        assert request.authenticated_userid == "foo"
+
+
 def test_auth_request(makerequest, xom):
     from pyramid.authentication import b64encode
     from pyramid.httpexceptions import HTTPForbidden
