@@ -1,3 +1,11 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=45", "setuptools_changelog_shortener", "wheel"]
 build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools_changelog_shortener]
+read_from = "CHANGELOG.rst"
+write_to = "CHANGELOG.short.rst"
+count = 10
+delimiter = "^==+"
+title = "=========\nChangelog\n========="
