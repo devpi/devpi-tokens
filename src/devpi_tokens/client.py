@@ -17,7 +17,7 @@ import traceback
 client_hookimpl = HookimplMarker("devpiclient")
 
 
-known_permissions = frozenset((
+public_permissions = frozenset((
     'del_entry',
     'del_project',
     'del_verdata',
@@ -26,11 +26,16 @@ known_permissions = frozenset((
     'index_modify',
     'pkg_read',
     'toxresult_upload',
-    'upload',
+    'upload'))
+
+hidden_permissions = frozenset((
     'user_create',
     'user_delete',
     'user_login',
     'user_modify'))
+
+
+known_permissions = public_permissions.union(hidden_permissions)
 
 
 def add_token_args(parser):
@@ -57,7 +62,7 @@ def add_restrictions_args(parser, expires_default):
              "The permission names are checked against a list of known permissions from devpi-server. "
              "Since plugins might add further permissions, "
              "unknown ones can still be added after confirmation. "
-             "The known permissions from devpi-server are: %s" % ', '.join(sorted(known_permissions)))
+             "The known permissions from devpi-server are: %s" % ', '.join(sorted(public_permissions)))
     parser.add_argument(
         "-e", "--expires", action="store", default=expires_default,
         help="expiration as epoch timestamp or delta with units: y(ear(s)), "

@@ -1,6 +1,8 @@
 0.6.0 (Unreleased)
 ==================
 
+- hide user permissions from help output, as they are disabled on the server
+  side anyway
 - allow token to be used with basic authentication as username and no password,
   or as password with no username
 

@@ -18,6 +18,18 @@ def test_commands(capsys):
     assert 'token-login' in out
 
 
+def test_user_permissions_hidden(capsys):
+    with pytest.raises(SystemExit) as e:
+        devpi.main.main(['devpi', 'token-create', '--help'])
+    (out, err) = capsys.readouterr()
+    assert e.value.code == 0
+    assert 'comma separated list of allowed permissions' in out
+    assert 'user_create' not in out
+    assert 'user_delete' not in out
+    assert 'user_login' not in out
+    assert 'user_modify' not in out
+
+
 def test_get_expires_from_args():
     from devpi_tokens.client import get_expires_from_args
     import time
