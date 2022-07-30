@@ -61,6 +61,19 @@ class ExpiresRestriction(Restriction):
                 request.apireturn(403, "Not allowed to set expiration to more than one year")
 
 
+@restriction("not_before")
+class NotBeforeRestriction(Restriction):
+    def __init__(self, value):
+        try:
+            value = int(value)
+        except ValueError:
+            raise ValueError(f"Invalid value '{value}' for not before")
+        self.value = value
+
+    def validate_against_request(self, request):
+        return
+
+
 class ListRestriction(Restriction):
     def validate_item(self, index, item):
         return

@@ -103,25 +103,45 @@ def get_allowed_from_args(hub, args):
     return allowed
 
 
-def get_expires_from_args(hub, args):
+def get_timestamp_from_arg(hub, args, name):
+    arg = getattr(args, name).strip()
     try:
-        from delta import parse as parse_delta
-    except ImportError:
-        hub.fatal(
-            '''The 'delta' module is missing. '''
-            '''Did you install devpi-tokens without the 'client' extras? '''
-            '''Use: pip install "devpi-tokens[client]"''')
+        value = int(arg)
+    except ValueError:
+        try:
+            from delta import parse as parse_delta
+        except ImportError:
+            hub.fatal(
+                '''The 'delta' module is missing. '''
+                '''Did you install devpi-tokens without the 'client' extras? '''
+                '''Use: pip install "devpi-tokens[client]"''')
+        try:
+            if arg.startswith('-'):
+                value = -parse_delta(arg[1:])
+            else:
+                value = parse_delta(arg)
+        except Exception as e:
+            hub.fatal("Can't parse %s '%s': %s" % (
+                name,
+                arg,
+                get_formatted_exception(e)))
+        utcnow = datetime.datetime.now(tz=datetime.timezone.utc)
+        expires = int((utcnow + value).timestamp())
+    return expires
+
+
+def get_expires_from_args(hub, args):
     expires = args.expires
     if expires is not None and expires != "never":
-        utcnow = datetime.datetime.now(datetime.timezone.utc)
-        try:
-            expires_delta = parse_delta(expires)
-        except Exception as e:
-            hub.fatal("Can't parse expiration '%s': %s" % (
-                expires,
-                get_formatted_exception(e)))
-        expires = int((utcnow + expires_delta).timestamp())
+        expires = get_timestamp_from_arg(hub, args, "expires")
     return expires
+
+
+def get_not_before_from_args(hub, args):
+    not_before = args.not_before
+    if not_before is not None:
+        not_before = get_timestamp_from_arg(hub, args, "not_before")
+    return not_before
 
 
 def get_formatted_exception(e):

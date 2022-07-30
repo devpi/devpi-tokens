@@ -1,12 +1,14 @@
 from devpi_common.url import URL
 from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
+from devpi_tokens.restrictions import NotBeforeRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
 from devpi_tokens.restrictions import get_restrictions_from_token
 from pluggy import HookimplMarker
 import json
 import pymacaroons
 import pytest
+import time
 try:
     from devpi_server import __version__  # noqa
 except ImportError:
@@ -220,7 +222,6 @@ def test_token_user_permissions(mapp, testapp):
 
 
 def test_create_token_expiration(mapp, testapp):
-    import time
     api = mapp.create_and_use()
     url = URL(api.index).joinpath('+token-create').url
     # invalid
@@ -273,6 +274,36 @@ def test_root_can_create_never_expiring_tokens(mapp, testapp):
         200,
         URL(api.index).joinpath('+api').url,
         headers=dict(Authorization="Bearer %s" % token))
+
+
+def test_create_token_not_before(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    # invalid
+    r = testapp.post(url, json.dumps(dict(not_before="invalid")), code=400)
+    assert r.json["message"] == "Invalid value 'invalid' for not before"
+    # just 10 seconds
+    r = testapp.post(url, json.dumps(dict(not_before=int(time.time() + 10))))
+    macaroon = pymacaroons.Macaroon.deserialize(r.json["result"]["token"])
+    assert "not_before" in get_restrictions_from_macaroon(macaroon).names
+
+
+def test_token_not_before(mapp, testapp):
+    api = mapp.create_and_use()
+    url = URL(api.index).joinpath('+token-create').url
+    r = testapp.post(url)
+    token = r.json['result']['token']
+    # add not_before to a new derived token
+    macaroon = pymacaroons.Macaroon.deserialize(token)
+    now = int(time.time())
+    macaroon.add_first_party_caveat(f"not_before={now + 10}")
+    (not_before,) = get_restrictions_from_macaroon(macaroon)["not_before"]
+    assert not_before == NotBeforeRestriction(now + 10)
+    r = testapp.xget(
+        403,
+        URL(api.index).joinpath('+api').url,
+        headers=dict(Authorization="Bearer %s" % macaroon.serialize()))
+    assert f"InvalidMacaroon: Token not valid before {now + 10}" in r.text
 
 
 def test_token_allowed(mapp, testapp):

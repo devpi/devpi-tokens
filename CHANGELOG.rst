@@ -3,6 +3,7 @@
 
 - add Python 3.10 support
 - drop Python 3.6 support
+- add ``not_before`` restriction
 
 
 0.6.0 (Unreleased)

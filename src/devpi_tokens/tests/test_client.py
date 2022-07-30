@@ -40,3 +40,15 @@ def test_get_expires_from_args():
     now = int(time.time())
     result = get_expires_from_args(None, args)
     assert 9 <= (result - now) <= 11
+
+
+def test_get_not_before_from_args():
+    from devpi_tokens.client import get_not_before_from_args
+    import time
+
+    class args:
+        not_before = '-10s'
+
+    now = int(time.time())
+    result = get_not_before_from_args(None, args)
+    assert 9 <= (now - result) <= 11

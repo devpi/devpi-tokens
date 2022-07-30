@@ -12,6 +12,7 @@ import base64
 import datetime
 import pymacaroons
 import secrets
+import sys
 import time
 import traceback
 
@@ -75,6 +76,23 @@ class V1Caveat(Caveat):
         indexes = {x.strip() for x in value.split(',')}
         if indexname not in indexes:
             raise InvalidMacaroon("Token denied access to index '%s'" % indexname)
+        return True
+
+    def verify_not_before(self, value):
+        try:
+            not_before = int(value)
+        except Exception:
+            not_before = sys.maxsize
+        if time.time() < not_before:
+            msg = f"Token not valid before {value}"
+            try:
+                msg = "%s (%s)" % (
+                    msg,
+                    datetime.datetime.fromtimestamp(
+                        not_before, tz=datetime.timezone.utc))
+            except Exception:
+                pass
+            raise InvalidMacaroon(msg)
         return True
 
     def verify_projects(self, value):
