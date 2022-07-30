@@ -1,3 +1,10 @@
+0.7.0 (Unreleased)
+==================
+
+- add Python 3.10 support
+- drop Python 3.6 support
+
+
 0.6.0 (Unreleased)
 ==================
 
