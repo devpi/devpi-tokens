@@ -312,10 +312,6 @@ class TokenIdentity:
         self.groups = []
         self.token = token
 
-    # @cached_property
-    # def macaroon(self):
-    #     return pymacaroons.Macaroon.deserialize(self.token)
-
     @cached_property
     def restrictions(self):
         return get_restrictions_from_token(self.token)
