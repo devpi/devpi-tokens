@@ -177,7 +177,8 @@ def test_token_create(capfd, devpi):
     devpi("token-create")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    assert token.startswith("devpi-")
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert token_user.startswith("user")
     assert get_restrictions_from_macaroon(macaroon).names == ["expires"]
@@ -188,7 +189,7 @@ def test_token_create_allowed(capfd, devpi):
     devpi("token-create", "-a", "pkg_read", "--allowed=toxresult_upload , pypi_submit")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert token_user.startswith("user")
     restrictions = get_restrictions_from_macaroon(macaroon)
@@ -213,7 +214,7 @@ def test_token_create_indexes(capfd, devpi):
     devpi("token-create", "-i", "foo", "--indexes=bar , ham")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert token_user.startswith("user")
     restrictions = get_restrictions_from_macaroon(macaroon)
@@ -238,7 +239,7 @@ def test_token_create_projects(capfd, devpi):
     devpi("token-create", "-p", "foo", "--projects=bar , ham")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert token_user.startswith("user")
     restrictions = get_restrictions_from_macaroon(macaroon)
@@ -292,7 +293,7 @@ def test_token_list(capfd, devpi):
     devpi("token-create")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     devpi("token-list")
     (out, err) = capfd.readouterr()
@@ -345,7 +346,7 @@ def test_login_deleted_token(capfd, devpi):
     devpi("token-create")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     devpi("token-delete", token_id)
     (out, err) = capfd.readouterr()
@@ -378,7 +379,7 @@ def test_root_user_can_create_other_tokens(capfd, devpi, devpi_username):
     devpi("token-create", "-u", devpi_username)
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     assert token_user == devpi_username
     devpi("token-list", "-u", devpi_username)
@@ -395,7 +396,7 @@ def test_root_create_expiration(capfd, devpi, devpi_username):
     devpi("token-create", "-u", devpi_username, "-e", "never")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id1) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     assert token_user == devpi_username
     devpi("token-inspect", "--token", token)
@@ -405,7 +406,7 @@ def test_root_create_expiration(capfd, devpi, devpi_username):
     devpi("token-create", "-u", devpi_username, "-e", "3 years")
     (out, err) = capfd.readouterr()
     token = out.splitlines()[-1]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id2) = macaroon.identifier.decode("ascii").rsplit('-', 1)
     assert token_user == devpi_username
     devpi("token-inspect", "--token", token)

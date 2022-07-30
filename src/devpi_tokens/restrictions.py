@@ -197,5 +197,7 @@ def get_restrictions_from_macaroon(macaroon):
 
 
 def get_restrictions_from_token(token):
+    if token.startswith('devpi-'):
+        token = token[6:]
     return get_restrictions_from_macaroon(
         pymacaroons.Macaroon.deserialize(token))

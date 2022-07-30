@@ -128,16 +128,26 @@ def test_auth_request(makerequest, xom):
         request = makerequest("/")
         request.headers["Authorization"] = "Bearer %s" % token
         assert request.authenticated_userid == "foo"
+        # test old token without prefix
+        assert token.startswith("devpi-")
+        no_prefix_token = token[6:]
+        assert not no_prefix_token.startswith("devpi-")
+        request = makerequest("/")
+        request.headers["Authorization"] = "Bearer %s" % no_prefix_token
+        assert request.authenticated_userid == "foo"
+        # replace key
         with user.key.update() as userdict:
             (token_id,) = userdict["tokens"].keys()
             userdict["tokens"][token_id]["key"] = secrets.token_urlsafe(32)
         request = makerequest("/")
         assert request.authenticated_userid is None
+        # delete token_id
         with user.key.update() as userdict:
             (token_id,) = userdict["tokens"].keys()
             del userdict["tokens"][token_id]
         request = makerequest("/")
         assert request.authenticated_userid is None
+        # delete tokens dict
         with user.key.update() as userdict:
             del userdict["tokens"]
         request = makerequest("/")
@@ -197,7 +207,7 @@ def test_token_delete(mapp, testapp):
     url = URL(api.index).joinpath("+token-create").url
     r = testapp.post(url)
     token = r.json["result"]["token"]
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     url = URL(api.index).joinpath("+tokens", token_id).url
     r = testapp.delete(url)
@@ -235,7 +245,7 @@ def test_create_token_expiration(mapp, testapp):
     assert r.json["message"] == "Not allowed to set expiration to more than one year"
     # just 10 seconds
     r = testapp.post(url, json.dumps(dict(expires=int(time.time() + 10))))
-    macaroon = pymacaroons.Macaroon.deserialize(r.json["result"]["token"])
+    macaroon = pymacaroons.Macaroon.deserialize(r.json["result"]["token"][6:])
     assert get_restrictions_from_macaroon(macaroon).names == ["expires"]
     # "never" not allowed by regular users
     r = testapp.post(url, json.dumps(dict(expires="never")), code=403)
@@ -248,7 +258,7 @@ def test_token_expiration(mapp, testapp):
     r = testapp.post(url)
     token = r.json['result']['token']
     # add a shorter expiration to a new derived token
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     macaroon.add_first_party_caveat("expires=10")
     (orig_expires, new_expires) = get_restrictions_from_macaroon(macaroon)["expires"]
     assert new_expires == ExpiresRestriction(10)
@@ -265,7 +275,7 @@ def test_root_can_create_never_expiring_tokens(mapp, testapp):
     url = URL(api.index).joinpath('+token-create').url
     r = testapp.post(url, json.dumps(dict(expires="never")))
     token = r.json['result']['token']
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     (token_user, token_id) = macaroon.identifier.decode("ascii").rsplit("-", 1)
     assert api.user == token_user
     (expires,) = get_restrictions_from_macaroon(macaroon)["expires"]
@@ -284,7 +294,7 @@ def test_create_token_not_before(mapp, testapp):
     assert r.json["message"] == "Invalid value 'invalid' for not before"
     # just 10 seconds
     r = testapp.post(url, json.dumps(dict(not_before=int(time.time() + 10))))
-    macaroon = pymacaroons.Macaroon.deserialize(r.json["result"]["token"])
+    macaroon = pymacaroons.Macaroon.deserialize(r.json["result"]["token"][6:])
     assert "not_before" in get_restrictions_from_macaroon(macaroon).names
 
 
@@ -294,7 +304,7 @@ def test_token_not_before(mapp, testapp):
     r = testapp.post(url)
     token = r.json['result']['token']
     # add not_before to a new derived token
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     now = int(time.time())
     macaroon.add_first_party_caveat(f"not_before={now + 10}")
     (not_before,) = get_restrictions_from_macaroon(macaroon)["not_before"]
@@ -313,7 +323,7 @@ def test_token_allowed(mapp, testapp):
         allowed=["pkg_read", "upload"])))
     token = r.json['result']['token']
     # add additional allowed limitation to a new derived token
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     macaroon.add_first_party_caveat("allowed=pkg_read,toxresult_upload")
     mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
     # can't upload other
@@ -354,7 +364,7 @@ def test_token_indexes(mapp, testapp):
     r = testapp.post(url)
     token = r.json['result']['token']
     # add an indexes limitation to a new derived token
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     macaroon.add_first_party_caveat("indexes=%s" % api1.stagename)
     # we can patch our first index
     assert testapp.get(api1.index).json["result"]["volatile"] is True
@@ -387,7 +397,7 @@ def test_token_projects(mapp, testapp):
     r = testapp.post(url)
     token = r.json['result']['token']
     # add a projects limitation to a new derived token
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     macaroon.add_first_party_caveat("projects=pkg,hello")
     mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
     content_hello = mapp.makepkg("hello-1.0.tar.gz", b"hello", "hello", "1.0")
@@ -421,7 +431,7 @@ def test_token_projects_forbidden_plugin(makemapp, maketestapp, makexom):
     r = testapp.post(url)
     token = r.json['result']['token']
     # add a projects limitation to a new derived token
-    macaroon = pymacaroons.Macaroon.deserialize(token)
+    macaroon = pymacaroons.Macaroon.deserialize(token[6:])
     macaroon.add_first_party_caveat("projects=pkg,hello")
     mapp.testapp.auth = mapp.auth = (mapp.auth[0], macaroon.serialize())
     content_hello = mapp.makepkg("hello-1.0.tar.gz", b"hello", "hello", "1.0")
@@ -461,7 +471,7 @@ def test_token_pypi_expiry_caveat(makerequest, xom):
         assert request.authenticated_userid == "foo"
         # check not before
         now = int(time.time())
-        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon = pymacaroons.Macaroon.deserialize(token[6:])
         macaroon.add_first_party_caveat(
             f'{{"nbf": "{now + 10}", "exp": "{now + 10}"}}')
         request = makerequest("/")
@@ -473,7 +483,7 @@ def test_token_pypi_expiry_caveat(makerequest, xom):
         assert "Token not valid before" in arg
         # check expiration
         now = int(time.time())
-        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon = pymacaroons.Macaroon.deserialize(token[6:])
         macaroon.add_first_party_caveat(
             f'{{"nbf": "{now - 10}", "exp": "{now - 10}"}}')
         request = makerequest("/")
@@ -485,7 +495,7 @@ def test_token_pypi_expiry_caveat(makerequest, xom):
         assert "Token expired at" in arg
         # check valid range
         now = int(time.time())
-        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon = pymacaroons.Macaroon.deserialize(token[6:])
         macaroon.add_first_party_caveat(
             f'{{"nbf": "{now - 10}", "exp": "{now + 10}"}}')
         request = makerequest("/")
@@ -505,7 +515,7 @@ def test_token_pypi_projects_caveat(app, makerequest, xom):
         request.headers["Authorization"] = f"Bearer {token}"
         assert request.authenticated_userid == "foo"
         # without context this just passes
-        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon = pymacaroons.Macaroon.deserialize(token[6:])
         macaroon.add_first_party_caveat(
             '{"version": 1, "permissions": {"projects": ["devpi-tokens"]}}')
         request = makerequest("/")
@@ -532,4 +542,46 @@ def test_token_pypi_projects_caveat(app, makerequest, xom):
         request.matchdict = dict(
             user="foo", index="bar", project="devpi-tokens")
         request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        assert request.authenticated_userid == "foo"
+
+
+def test_token_pypitoken_caveat(app, makerequest, xom):
+    from pyramid.httpexceptions import HTTPForbidden
+    import pypitoken
+    import pyramid.interfaces
+    request = makerequest("/")
+    with xom.keyfs.transaction(write=True):
+        user = xom.model.create_user("foo", "")
+        stage = user.create_stage("bar")
+        stage.set_versiondata(dict(name="ham", version="1.0"))
+        token = request.devpi_token_utility.new_token(user)
+        request.headers["Authorization"] = f"Bearer {token}"
+        assert request.authenticated_userid == "foo"
+        new_token = pypitoken.Token.load(token)
+        now = int(time.time())
+        new_token.restrict(
+            projects=["devpi-tokens"],
+            not_before=now - 1,
+            not_after=now + 60)
+        # with wrong project this blocks
+        request = makerequest("/foo/bar/ham")
+        root_factory = request.registry.getUtility(
+            pyramid.interfaces.IRootFactory)
+        request.context = root_factory(request)
+        request.matchdict = dict(
+            user="foo", index="bar", project="ham")
+        request.headers["Authorization"] = f"Bearer {new_token.dump()}"
+        with pytest.raises(HTTPForbidden) as e:
+            request.authenticated_userid
+        assert e.value.code == 403
+        (arg,) = e.value.args
+        assert "Token denied access to project 'ham'" in arg
+        # with correct project this passes
+        request = makerequest("/foo/bar/devpi-tokens")
+        root_factory = request.registry.getUtility(
+            pyramid.interfaces.IRootFactory)
+        request.context = root_factory(request)
+        request.matchdict = dict(
+            user="foo", index="bar", project="devpi-tokens")
+        request.headers["Authorization"] = f"Bearer {new_token.dump()}"
         assert request.authenticated_userid == "foo"

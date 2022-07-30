@@ -198,6 +198,8 @@ def get_user_url_from_args(hub, args):
 
 def get_token_macaroon(hub, token):
     try:
+        if token.startswith("devpi-"):
+            token = token[6:]
         return pymacaroons.Macaroon.deserialize(token)
     except Exception as e:
         hub.fatal("Invalid token: %s" % get_formatted_exception(e))

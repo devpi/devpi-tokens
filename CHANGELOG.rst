@@ -4,6 +4,7 @@
 - add Python 3.10 support
 - drop Python 3.6 support
 - add ``not_before`` restriction
+- support restrictions added by ``pypitoken`` in devpi-client 6.0.0
 
 
 0.6.0 (Unreleased)

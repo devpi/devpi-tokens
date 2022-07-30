@@ -243,6 +243,8 @@ class TokenUtility:
             version=secret_parameters.version)
 
     def deserialize(self, token):
+        if token.startswith("devpi-"):
+            token = token[6:]
         return pymacaroons.Macaroon.deserialize(token)
 
     def token_user_id(self, macaroon):
@@ -279,7 +281,7 @@ class TokenUtility:
             version=pymacaroons.MACAROON_V2)
         for restriction in restrictions:
             macaroon.add_first_party_caveat(restriction)
-        return macaroon.serialize()
+        return f"devpi-{macaroon.serialize()}"
 
     def remove_token(self, user, token_id):
         if token_id not in self.get_tokens_info(user):
