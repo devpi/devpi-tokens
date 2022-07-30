@@ -449,3 +449,87 @@ def test_token_projects_forbidden_plugin(makemapp, maketestapp, makexom):
     testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/+simple/pkg" % api.stagename})
     testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/other" % api.stagename})
     testapp.xget(200, "/+authcheck", headers={"X-Original-URI": "/%s/+simple/other" % api.stagename})
+
+
+def test_token_pypi_expiry_caveat(makerequest, xom):
+    from pyramid.httpexceptions import HTTPForbidden
+    request = makerequest("/")
+    with xom.keyfs.transaction(write=True):
+        user = xom.model.create_user("foo", "")
+        token = request.devpi_token_utility.new_token(user)
+        request.headers["Authorization"] = f"Bearer {token}"
+        assert request.authenticated_userid == "foo"
+        # check not before
+        now = int(time.time())
+        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon.add_first_party_caveat(
+            f'{{"nbf": "{now + 10}", "exp": "{now + 10}"}}')
+        request = makerequest("/")
+        request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        with pytest.raises(HTTPForbidden) as e:
+            request.authenticated_userid
+        assert e.value.code == 403
+        (arg,) = e.value.args
+        assert "Token not valid before" in arg
+        # check expiration
+        now = int(time.time())
+        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon.add_first_party_caveat(
+            f'{{"nbf": "{now - 10}", "exp": "{now - 10}"}}')
+        request = makerequest("/")
+        request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        with pytest.raises(HTTPForbidden) as e:
+            request.authenticated_userid
+        assert e.value.code == 403
+        (arg,) = e.value.args
+        assert "Token expired at" in arg
+        # check valid range
+        now = int(time.time())
+        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon.add_first_party_caveat(
+            f'{{"nbf": "{now - 10}", "exp": "{now + 10}"}}')
+        request = makerequest("/")
+        request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        assert request.authenticated_userid == "foo"
+
+
+def test_token_pypi_projects_caveat(app, makerequest, xom):
+    from pyramid.httpexceptions import HTTPForbidden
+    import pyramid.interfaces
+    request = makerequest("/")
+    with xom.keyfs.transaction(write=True):
+        user = xom.model.create_user("foo", "")
+        stage = user.create_stage("bar")
+        stage.set_versiondata(dict(name="ham", version="1.0"))
+        token = request.devpi_token_utility.new_token(user)
+        request.headers["Authorization"] = f"Bearer {token}"
+        assert request.authenticated_userid == "foo"
+        # without context this just passes
+        macaroon = pymacaroons.Macaroon.deserialize(token)
+        macaroon.add_first_party_caveat(
+            '{"version": 1, "permissions": {"projects": ["devpi-tokens"]}}')
+        request = makerequest("/")
+        request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        assert request.authenticated_userid == "foo"
+        # with wrong project this blocks
+        request = makerequest("/foo/bar/ham")
+        root_factory = request.registry.getUtility(
+            pyramid.interfaces.IRootFactory)
+        request.context = root_factory(request)
+        request.matchdict = dict(
+            user="foo", index="bar", project="ham")
+        request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        with pytest.raises(HTTPForbidden) as e:
+            request.authenticated_userid
+        assert e.value.code == 403
+        (arg,) = e.value.args
+        assert "Token denied access to project 'ham'" in arg
+        # with correct project this passes
+        request = makerequest("/foo/bar/devpi-tokens")
+        root_factory = request.registry.getUtility(
+            pyramid.interfaces.IRootFactory)
+        request.context = root_factory(request)
+        request.matchdict = dict(
+            user="foo", index="bar", project="devpi-tokens")
+        request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
+        assert request.authenticated_userid == "foo"

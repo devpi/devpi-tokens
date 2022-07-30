@@ -10,6 +10,7 @@ from pyramid.util import is_nonstr_iter
 import argon2
 import base64
 import datetime
+import json
 import pymacaroons
 import secrets
 import sys
@@ -112,11 +113,101 @@ class V1Caveat(Caveat):
         return True
 
     def __call__(self, predicate):
-        (key, value) = predicate.split("=", 1)
+        try:
+            (key, value) = predicate.split("=", 1)
+        except ValueError:
+            return False
         verify = getattr(self, "verify_%s" % key, None)
         if verify is None:
-            raise InvalidMacaroon("Unknown caveat '%s'" % key)
+            # ignore unknown caveat
+            return False
         return verify(value)
+
+
+class JsonCaveat(Caveat):
+    def __call__(self, predicate):
+        try:
+            data = json.loads(predicate)
+        except (ValueError, TypeError):
+            return False
+        return self.verify(data)
+
+
+class PyPIPermissionsCaveat(JsonCaveat):
+    def verify_projects(self, projects):
+        if self.context is None:
+            return True
+        username = self.context.username
+        index = self.context.index
+        project = self.context.project
+        if username is not None and index is not None and project is None:
+            if self.request.method == "POST" and ":action" in self.request.POST:
+                project = normalize_name(self.request.POST["name"])
+        if project is None:
+            return True
+        projects = {normalize_name(x) for x in projects}
+        if project not in projects:
+            raise InvalidMacaroon("Token denied access to project '%s'" % project)
+        return True
+
+    def verify(self, data):
+        try:
+            version = data["version"]
+            permissions = data["permissions"]
+        except KeyError:
+            return False
+
+        if version != 1:
+            raise InvalidMacaroon("invalid version")
+
+        if permissions is None:
+            raise InvalidMacaroon("invalid permissions")
+
+        if permissions == "user":
+            # User-scoped tokens behave exactly like a user's normal credentials.
+            return True
+        elif not isinstance(permissions, dict):
+            raise InvalidMacaroon("invalid permissions format")
+
+        projects = permissions.get("projects")
+        if projects is None:
+            raise InvalidMacaroon("invalid projects in predicate")
+
+        return self.verify_projects(projects)
+
+
+class PyPIExpiryCaveat(JsonCaveat):
+    def verify(self, data):
+        try:
+            not_before = int(data["nbf"])
+            expiry = int(data["exp"])
+        except (KeyError, ValueError):
+            return False
+
+        now = int(time.time())
+        if now < not_before:
+            msg = f"Token not valid before {not_before}"
+            try:
+                msg = "%s (%s)" % (
+                    msg,
+                    datetime.datetime.fromtimestamp(
+                        not_before, tz=datetime.timezone.utc))
+            except Exception:
+                pass
+            raise InvalidMacaroon(msg)
+
+        if now >= expiry:
+            msg = "Token expired at %s" % expiry
+            try:
+                msg = "%s (%s)" % (
+                    msg,
+                    datetime.datetime.fromtimestamp(
+                        expiry, tz=datetime.timezone.utc))
+            except Exception:
+                pass
+            raise InvalidMacaroon(msg)
+
+        return True
 
 
 class TokenUtility:
@@ -200,6 +291,8 @@ class TokenUtility:
         key = self.derive_key(token_info["key"])
         verifier = pymacaroons.Verifier()
         verifier.satisfy_general(V1Caveat(request, verifier))
+        verifier.satisfy_general(PyPIPermissionsCaveat(request, verifier))
+        verifier.satisfy_general(PyPIExpiryCaveat(request, verifier))
         return verifier.verify(macaroon, key)
 
 
