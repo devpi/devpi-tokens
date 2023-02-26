@@ -1,4 +1,4 @@
-1.0.0 - Unreleased
+1.0.0 - 2023-02-26
 ==================
 
 - add Python 3.10 support
