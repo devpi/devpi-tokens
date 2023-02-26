@@ -133,7 +133,7 @@ class JsonCaveat(Caveat):
         return self.verify(data)
 
 
-class PyPIPermissionsCaveat(JsonCaveat):
+class PyPIV1PermissionsCaveat(JsonCaveat):
     def verify_projects(self, projects):
         if self.context is None:
             return True
@@ -151,6 +151,8 @@ class PyPIPermissionsCaveat(JsonCaveat):
         return True
 
     def verify(self, data):
+        if not isinstance(data, dict):
+            return False
         try:
             version = data["version"]
             permissions = data["permissions"]
@@ -176,8 +178,10 @@ class PyPIPermissionsCaveat(JsonCaveat):
         return self.verify_projects(projects)
 
 
-class PyPIExpiryCaveat(JsonCaveat):
+class PyPIV1ExpiryCaveat(JsonCaveat):
     def verify(self, data):
+        if not isinstance(data, dict):
+            return False
         try:
             not_before = int(data["nbf"])
             expiry = int(data["exp"])
@@ -208,6 +212,76 @@ class PyPIExpiryCaveat(JsonCaveat):
             raise InvalidMacaroon(msg)
 
         return True
+
+
+class PyPIExpiryCaveat(JsonCaveat):
+    def verify(self, data):
+        if not isinstance(data, list) or not data:
+            return False
+        if data[0] != 0:
+            return False
+        try:
+            (expires_at, not_before) = data[1:]
+        except ValueError:
+            return False
+
+        now = int(time.time())
+        if now < not_before:
+            msg = f"Token not valid before {not_before}"
+            try:
+                msg = "%s (%s)" % (
+                    msg,
+                    datetime.datetime.fromtimestamp(
+                        not_before, tz=datetime.timezone.utc))
+            except Exception:
+                pass
+            raise InvalidMacaroon(msg)
+
+        if now >= expires_at:
+            msg = "Token expired at %s" % expires_at
+            try:
+                msg = "%s (%s)" % (
+                    msg,
+                    datetime.datetime.fromtimestamp(
+                        expires_at, tz=datetime.timezone.utc))
+            except Exception:
+                pass
+            raise InvalidMacaroon(msg)
+
+        return True
+
+
+class PyPIProjectsCaveat(JsonCaveat):
+    def verify_projects(self, projects):
+        if self.context is None:
+            return True
+        username = self.context.username
+        index = self.context.index
+        project = self.context.project
+        if username is not None and index is not None and project is None:
+            if self.request.method == "POST" and ":action" in self.request.POST:
+                project = normalize_name(self.request.POST["name"])
+        if project is None:
+            return True
+        projects = {normalize_name(x) for x in projects}
+        if project not in projects:
+            raise InvalidMacaroon("Token denied access to project '%s'" % project)
+        return True
+
+    def verify(self, data):
+        if not isinstance(data, list):
+            return False
+        if data[0] != 1:
+            return False
+        try:
+            (projects,) = data[1:]
+        except ValueError:
+            return False
+
+        if not isinstance(projects, list):
+            raise InvalidMacaroon("invalid projects in predicate")
+
+        return self.verify_projects(projects)
 
 
 class TokenUtility:
@@ -293,8 +367,10 @@ class TokenUtility:
         key = self.derive_key(token_info["key"])
         verifier = pymacaroons.Verifier()
         verifier.satisfy_general(V1Caveat(request, verifier))
-        verifier.satisfy_general(PyPIPermissionsCaveat(request, verifier))
+        verifier.satisfy_general(PyPIV1PermissionsCaveat(request, verifier))
+        verifier.satisfy_general(PyPIV1ExpiryCaveat(request, verifier))
         verifier.satisfy_general(PyPIExpiryCaveat(request, verifier))
+        verifier.satisfy_general(PyPIProjectsCaveat(request, verifier))
         return verifier.verify(macaroon, key)
 
 

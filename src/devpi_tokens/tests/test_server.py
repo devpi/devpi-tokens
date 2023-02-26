@@ -560,9 +560,51 @@ def test_token_pypitoken_caveat(app, makerequest, xom):
         new_token = pypitoken.Token.load(token)
         now = int(time.time())
         new_token.restrict(
-            projects=["devpi-tokens"],
+            project_names=["devpi-tokens"],
             not_before=now - 1,
             not_after=now + 60)
+        # with wrong project this blocks
+        request = makerequest("/foo/bar/ham")
+        root_factory = request.registry.getUtility(
+            pyramid.interfaces.IRootFactory)
+        request.context = root_factory(request)
+        request.matchdict = dict(
+            user="foo", index="bar", project="ham")
+        request.headers["Authorization"] = f"Bearer {new_token.dump()}"
+        with pytest.raises(HTTPForbidden) as e:
+            request.authenticated_userid
+        assert e.value.code == 403
+        (arg,) = e.value.args
+        assert "Token denied access to project 'ham'" in arg
+        # with correct project this passes
+        request = makerequest("/foo/bar/devpi-tokens")
+        root_factory = request.registry.getUtility(
+            pyramid.interfaces.IRootFactory)
+        request.context = root_factory(request)
+        request.matchdict = dict(
+            user="foo", index="bar", project="devpi-tokens")
+        request.headers["Authorization"] = f"Bearer {new_token.dump()}"
+        assert request.authenticated_userid == "foo"
+
+
+def test_token_pypitoken_legacy_caveat(app, makerequest, xom):
+    from pyramid.httpexceptions import HTTPForbidden
+    import pypitoken
+    import pyramid.interfaces
+    request = makerequest("/")
+    with xom.keyfs.transaction(write=True):
+        user = xom.model.create_user("foo", "")
+        stage = user.create_stage("bar")
+        stage.set_versiondata(dict(name="ham", version="1.0"))
+        token = request.devpi_token_utility.new_token(user)
+        request.headers["Authorization"] = f"Bearer {token}"
+        assert request.authenticated_userid == "foo"
+        new_token = pypitoken.Token.load(token)
+        now = int(time.time())
+        new_token.restrict(
+            legacy_project_names=["devpi-tokens"],
+            legacy_not_before=now - 1,
+            legacy_not_after=now + 60)
         # with wrong project this blocks
         request = makerequest("/foo/bar/ham")
         root_factory = request.registry.getUtility(
