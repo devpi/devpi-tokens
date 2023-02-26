@@ -1,4 +1,4 @@
-0.7.0 (Unreleased)
+1.0.0 - Unreleased
 ==================
 
 - add Python 3.10 support
@@ -7,7 +7,7 @@
 - support restrictions added by ``pypitoken`` in devpi-client 6.0.0
 
 
-0.6.0 (Unreleased)
+0.6.0 - Unreleased
 ==================
 
 - hide user permissions from help output, as they are disabled on the server
@@ -16,7 +16,7 @@
   or as password with no username
 
 
-0.5.0 (Unreleased)
+0.5.0 - Unreleased
 ==================
 
 - ask for confirmation when using unknown permissions
@@ -32,7 +32,7 @@
 - show human readable expiration if possible
 
 
-0.4.0 (Unreleased)
+0.4.0 - Unreleased
 ==================
 
 - unify command naming by using prefix
@@ -55,7 +55,7 @@
 - add projects restriction to tokens
 
 
-0.3.0 (Unreleased)
+0.3.0 - Unreleased
 ==================
 
 - add ``inspect-token`` command
@@ -63,13 +63,13 @@
 - verify login status when using ``token-login``
 
 
-0.2.0 (Unreleased)
+0.2.0 - Unreleased
 ==================
 
 - use new hook and derived keys
 
 
-0.1.0 (Unreleased)
+0.1.0 - Unreleased
 ==================
 
 - initial proof of concept
