@@ -8,17 +8,20 @@ on:
 
 jobs:
   tests:
-    name: "Python ${{ matrix.python-version }}"
+    name: "Python ${{ matrix.python-version }} (${{ matrix.tox-envs }})"
     runs-on: "ubuntu-latest"
     env:
       PY_COLORS: 1
 
     strategy:
       matrix:
-        python-version:
-          - "3.7"
-          - "3.11"
-          - "pypy-3.7"
+        include:
+          - python-version: "3.7"
+            tox-envs: "py37,py37-client,py37-server"
+          - python-version: "3.11"
+            tox-envs: "py311,py311-client,py311-server"
+          - python-version: "pypy-3.7"
+            tox-envs: "pypy3,pypy3-client,pypy3-server"
 
     steps:
       - uses: "actions/checkout@v3"
@@ -31,11 +34,11 @@ jobs:
           python -VV
           python -m site
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --upgrade virtualenv tox tox-gh-actions
+          python -m pip install --upgrade virtualenv tox
 
-      - name: "Run tox targets for ${{ matrix.python-version }}"
+      - name: "Run tox targets for ${{ matrix.python-version }} (${{ matrix.tox-envs }})"
         continue-on-error: "${{ matrix.python-version == 'pypy-3.7' }}"
         run: |
           set -xe -o nounset
           python -m tox -a -vv
-          python -m tox -v -- -v --color=yes
+          python -m tox -v -e ${{ matrix.tox-envs }} -- -v --color=yes
