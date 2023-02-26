@@ -21,8 +21,8 @@ jobs:
           - "pypy-3.7"
 
     steps:
-      - uses: "actions/checkout@v2"
-      - uses: "actions/setup-python@v2"
+      - uses: "actions/checkout@v3"
+      - uses: "actions/setup-python@v4"
         with:
           python-version: "${{ matrix.python-version }}"
       - name: "Install dependencies"
@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade virtualenv tox tox-gh-actions
 
       - name: "Run tox targets for ${{ matrix.python-version }}"
-        continue-on-error: "${{ matrix.python-version == 'pypy3' }}"
+        continue-on-error: "${{ matrix.python-version == 'pypy-3.7' }}"
         run: |
           set -xe -o nounset
           python -m tox -a -vv
