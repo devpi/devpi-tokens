@@ -3,6 +3,7 @@ import pymacaroons
 import time
 
 
+ONE_YEAR_SECONDS = 366 * 24 * 60 * 60 + 10  # seconds of a leap year + 10 seconds to spare
 available_restrictions = dict()
 
 
@@ -40,7 +41,7 @@ class Restriction:
 @restriction("expires")
 class ExpiresRestriction(Restriction):
     def __init__(self, value):
-        self.default_expires = time.time() + 31536000  # one year by default
+        self.default_expires = time.time() + ONE_YEAR_SECONDS
         if value is None:
             value = self.default_expires
         if value != "never":

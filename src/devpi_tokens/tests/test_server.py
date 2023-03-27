@@ -232,6 +232,7 @@ def test_token_user_permissions(mapp, testapp):
 
 
 def test_create_token_expiration(mapp, testapp):
+    from devpi_tokens.restrictions import ONE_YEAR_SECONDS
     api = mapp.create_and_use()
     url = URL(api.index).joinpath('+token-create').url
     # invalid
@@ -241,7 +242,7 @@ def test_create_token_expiration(mapp, testapp):
     r = testapp.post(url, json.dumps(dict(expires=10)), code=400)
     assert r.json["message"] == "Can't set expiration before current time"
     # not more than a year
-    r = testapp.post(url, json.dumps(dict(expires=int(time.time() + 31536001))), code=403)
+    r = testapp.post(url, json.dumps(dict(expires=int(time.time() + ONE_YEAR_SECONDS + 1))), code=403)
     assert r.json["message"] == "Not allowed to set expiration to more than one year"
     # just 10 seconds
     r = testapp.post(url, json.dumps(dict(expires=int(time.time() + 10))))
