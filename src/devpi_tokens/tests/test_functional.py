@@ -28,9 +28,9 @@ def capfd(capfd):
 
     def readouterr_matcher():
         result = capfd.readouterr()
-        result.out = LineMatcher(result.out.splitlines())
-        result.err = LineMatcher(result.err.splitlines())
-        return result
+        out = LineMatcher(result.out.splitlines())
+        err = LineMatcher(result.err.splitlines())
+        return (out, err)
 
     capfd.readouterr_matcher = readouterr_matcher
     return capfd
