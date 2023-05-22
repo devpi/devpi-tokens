@@ -1,6 +1,6 @@
 import pytest
 try:
-    import devpi.main  # noqa
+    import devpi.main
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-client installed")
 

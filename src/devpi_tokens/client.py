@@ -1,3 +1,4 @@
+from contextlib import suppress
 from devpi_tokens.restrictions import AllowedRestriction
 from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
@@ -116,10 +117,10 @@ def get_timestamp_from_arg(hub, args, name):
                 '''Did you install devpi-tokens without the 'client' extras? '''
                 '''Use: pip install "devpi-tokens[client]"''')
         try:
-            if arg.startswith('-'):
-                value = -parse_delta(arg[1:])
-            else:
-                value = parse_delta(arg)
+            value = (
+                -parse_delta(arg[1:])
+                if arg.startswith('-')
+                else parse_delta(arg))
         except Exception as e:
             hub.fatal("Can't parse %s '%s': %s" % (
                 name,
@@ -327,13 +328,11 @@ def token_inspect(hub, args):
     for caveat in macaroon.caveats:
         (key, value) = caveat.to_dict()['cid'].split("=", 1)
         if key == 'expires':
-            try:
+            with suppress(Exception):
                 value = "%s (%s)" % (
                     value,
                     datetime.datetime.fromtimestamp(
                         int(value), tz=datetime.timezone.utc).astimezone())
-            except Exception:
-                pass
         info.append(('restriction', '%s=%s' % (key, value)))
     just_len = max(len(x[0]) for x in info)
     info_text = textwrap.indent(

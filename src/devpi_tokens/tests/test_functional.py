@@ -13,11 +13,11 @@ import socket
 import subprocess
 import sys
 try:
-    from devpi_server import __version__  # noqa
+    from devpi_server import __version__
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-server installed")
 try:
-    from devpi import __version__  # noqa
+    from devpi import __version__  # noqa: F401,F811
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-client installed")
 
@@ -49,10 +49,8 @@ def cmd_devpi(tmpdir, monkeypatch):
 
     def run_devpi(*args, **kwargs):
         callargs = []
-        for arg in ["devpi", "--clientdir", clientdir] + list(args):
-            if isinstance(arg, URL):
-                arg = arg.url
-            callargs.append(str(arg))
+        for arg in ["devpi", "--clientdir", clientdir, *args]:
+            callargs.append(str(arg.url if isinstance(arg, URL) else arg))
         print("*** inline$ %s" % " ".join(callargs))
         hub, method = initmain(callargs)
         monkeypatch.setattr(hub, "ask_confirm", ask_confirm)
@@ -132,7 +130,7 @@ def _liveserver(serverdir):
         "--serverdir", str(serverdir)]
     try:
         subprocess.check_call(
-            [str(init_path)] + args + ['--no-root-pypi'])
+            [str(init_path), *args, '--no-root-pypi'])
     except subprocess.CalledProcessError as e:
         # this won't output anything on Windows
         print(
@@ -140,7 +138,7 @@ def _liveserver(serverdir):
             file=sys.stderr)
         raise
     p = subprocess.Popen(
-        [str(path)] + args + ["--debug", "--host", host, "--port", str(port)])
+        [str(path), *args, "--debug", "--host", host, "--port", str(port)])
     wait_for_server_api(host, port)
     return (p, URL("http://%s:%s" % (host, port)))
 
@@ -427,6 +425,6 @@ def test_root_create_expiration(capfd, devpi, devpi_username):
     lines = ["Tokens for '%s':" % token_user]
     # the output of token-list is ordered by token id, so we have
     # to have the test in the correct order as well
-    for k, v in sorted(token_lines.items()):
-        lines.extend(v)
+    for k in sorted(token_lines):
+        lines.extend(token_lines[k])
     out.fnmatch_lines(lines)

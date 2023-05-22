@@ -10,22 +10,22 @@ import pymacaroons
 import pytest
 import time
 try:
-    from devpi_server import __version__  # noqa
+    from devpi_server import __version__  # noqa: F401
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-server installed")
 else:
-    from test_devpi_server.conftest import gentmp  # noqa
-    from test_devpi_server.conftest import httpget  # noqa
-    from test_devpi_server.conftest import lower_argon2_parameters  # noqa
-    from test_devpi_server.conftest import makemapp  # noqa
-    from test_devpi_server.conftest import maketestapp  # noqa
-    from test_devpi_server.conftest import makexom  # noqa
-    from test_devpi_server.conftest import mapp  # noqa
-    from test_devpi_server.conftest import pypiurls  # noqa
-    from test_devpi_server.conftest import storage_info  # noqa
-    from test_devpi_server.conftest import testapp  # noqa
+    from test_devpi_server.conftest import gentmp  # noqa: F401
+    from test_devpi_server.conftest import httpget  # noqa: F401
+    from test_devpi_server.conftest import lower_argon2_parameters  # noqa: F401
+    from test_devpi_server.conftest import makemapp
+    from test_devpi_server.conftest import maketestapp
+    from test_devpi_server.conftest import makexom
+    from test_devpi_server.conftest import mapp
+    from test_devpi_server.conftest import pypiurls  # noqa: F401
+    from test_devpi_server.conftest import storage_info  # noqa: F401
+    from test_devpi_server.conftest import testapp
 
-    (makexom, makemapp, maketestapp, mapp, testapp)  # shut up pyflakes
+    (makexom, makemapp, maketestapp, mapp, testapp)  # noqa: B018 shut up pyflakes
 
 
 devpiserver_hookimpl = HookimplMarker("devpiserver")
@@ -157,7 +157,7 @@ def test_auth_request(makerequest, xom):
         request = makerequest("/")
         request.headers["Authorization"] = "Basic %s" % basic
         with pytest.raises(HTTPForbidden) as e:
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
         assert e.value.code == 403
         assert e.value.args == ("Token doesn't match user name",)
         basic_auth = "bar:foo"
@@ -421,7 +421,7 @@ def test_token_projects_forbidden_plugin(makemapp, maketestapp, makexom):
         def devpiserver_authcheck_forbidden(self, request):
             # we only need to trigger user verification here to let token
             # validation run
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
 
     plugin = Plugin()
     xom = makexom(plugins=[devpi_tokens.server, plugin])
@@ -478,7 +478,7 @@ def test_token_pypi_expiry_caveat(makerequest, xom):
         request = makerequest("/")
         request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
         with pytest.raises(HTTPForbidden) as e:
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
         assert e.value.code == 403
         (arg,) = e.value.args
         assert "Token not valid before" in arg
@@ -490,7 +490,7 @@ def test_token_pypi_expiry_caveat(makerequest, xom):
         request = makerequest("/")
         request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
         with pytest.raises(HTTPForbidden) as e:
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
         assert e.value.code == 403
         (arg,) = e.value.args
         assert "Token expired at" in arg
@@ -531,7 +531,7 @@ def test_token_pypi_projects_caveat(app, makerequest, xom):
             user="foo", index="bar", project="ham")
         request.headers["Authorization"] = f"Bearer {macaroon.serialize()}"
         with pytest.raises(HTTPForbidden) as e:
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
         assert e.value.code == 403
         (arg,) = e.value.args
         assert "Token denied access to project 'ham'" in arg
@@ -573,7 +573,7 @@ def test_token_pypitoken_caveat(app, makerequest, xom):
             user="foo", index="bar", project="ham")
         request.headers["Authorization"] = f"Bearer {new_token.dump()}"
         with pytest.raises(HTTPForbidden) as e:
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
         assert e.value.code == 403
         (arg,) = e.value.args
         assert "Token denied access to project 'ham'" in arg
@@ -615,7 +615,7 @@ def test_token_pypitoken_legacy_caveat(app, makerequest, xom):
             user="foo", index="bar", project="ham")
         request.headers["Authorization"] = f"Bearer {new_token.dump()}"
         with pytest.raises(HTTPForbidden) as e:
-            request.authenticated_userid
+            request.authenticated_userid  # noqa: B018
         assert e.value.code == 403
         (arg,) = e.value.args
         assert "Token denied access to project 'ham'" in arg

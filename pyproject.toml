@@ -3,6 +3,34 @@ requires = ["setuptools>=45", "setuptools_changelog_shortener", "wheel"]
 build-backend = "setuptools.build_meta"
 
 
+[tool.ruff]
+select = [
+    "B", "COM", "DTZ", "E", "ERA", "EXE", "F",
+    "ICN", "ISC", "PGH", "PIE", "PLC", "PLE", "PLR", "PLW",
+    "RUF", "SIM", "T10", "TID", "TRY", "W", "YTT",
+]
+ignore = [
+    "B007", # maybe cleanup later
+    "B904", # maybe cleanup later
+    "E501",
+    "E741",
+    "PLC1901", # maybe cleanup later
+    "PLR2004",
+    "PLW2901", # maybe cleanup later
+    "SIM102", # maybe cleanup later
+    "SIM105", # cleanup soon
+    "SIM108", # cleanup later
+    "TRY003",
+    "TRY004", # maybe cleanup later
+    "TRY200", # cleanup later
+]
+target-version = "py37"
+
+
+[tool.ruff.per-file-ignores]
+"test_*.py" = ["PLR0915"]
+
+
 [tool.setuptools_changelog_shortener]
 read_from = "CHANGELOG.rst"
 write_to = "CHANGELOG.short.rst"
