@@ -16,6 +16,7 @@ try:
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-server installed")
 else:
+    pytestmark = [pytest.mark.notransaction]
     if devpi_server_version < parse_version("6.9.3dev"):
         from test_devpi_server.conftest import gentmp  # noqa: F401
         from test_devpi_server.conftest import httpget  # noqa: F401
