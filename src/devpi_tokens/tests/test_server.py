@@ -1,3 +1,4 @@
+from devpi_common.metadata import parse_version
 from devpi_common.url import URL
 from devpi_tokens.restrictions import ExpiresRestriction
 from devpi_tokens.restrictions import IndexesRestriction
@@ -10,22 +11,26 @@ import pymacaroons
 import pytest
 import time
 try:
-    from devpi_server import __version__  # noqa: F401
+    from devpi_server import __version__ as _devpi_server_version
+    devpi_server_version = parse_version(_devpi_server_version)
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-server installed")
 else:
-    from test_devpi_server.conftest import gentmp  # noqa: F401
-    from test_devpi_server.conftest import httpget  # noqa: F401
-    from test_devpi_server.conftest import lower_argon2_parameters  # noqa: F401
-    from test_devpi_server.conftest import makemapp
-    from test_devpi_server.conftest import maketestapp
-    from test_devpi_server.conftest import makexom
-    from test_devpi_server.conftest import mapp
-    from test_devpi_server.conftest import pypiurls  # noqa: F401
-    from test_devpi_server.conftest import storage_info  # noqa: F401
-    from test_devpi_server.conftest import testapp
+    if devpi_server_version < parse_version("6.9.3dev"):
+        from test_devpi_server.conftest import gentmp  # noqa: F401
+        from test_devpi_server.conftest import httpget  # noqa: F401
+        from test_devpi_server.conftest import lower_argon2_parameters  # noqa: F401
+        from test_devpi_server.conftest import makemapp
+        from test_devpi_server.conftest import maketestapp
+        from test_devpi_server.conftest import makexom
+        from test_devpi_server.conftest import mapp
+        from test_devpi_server.conftest import pypiurls  # noqa: F401
+        from test_devpi_server.conftest import storage_info  # noqa: F401
+        from test_devpi_server.conftest import testapp
 
-    (makexom, makemapp, maketestapp, mapp, testapp)  # noqa: B018 shut up pyflakes
+        (makexom, makemapp, maketestapp, mapp, testapp)  # noqa: B018 shut up pyflakes
+    else:
+        pytest_plugins = ["pytest_devpi_server", "test_devpi_server.plugin"]
 
 
 devpiserver_hookimpl = HookimplMarker("devpiserver")
