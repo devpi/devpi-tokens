@@ -79,7 +79,7 @@ def test_get_identity(makerequest, xom):
     request = makerequest("/")
     request.headers["Authorization"] = "Bearer"
     assert request.identity is None
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
         request = makerequest("/")
@@ -93,7 +93,7 @@ def test_get_identity_basic_auth(makerequest, xom):
     from devpi_tokens.server import TokenIdentity
     from pyramid.authentication import b64encode
     request = makerequest("/")
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
         # test with token as password and no username
@@ -128,7 +128,7 @@ def test_auth_request(makerequest, xom):
     request = makerequest("/")
     request.headers["Authorization"] = "Bearer"
     assert request.authenticated_userid is None
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
         request = makerequest("/")
@@ -471,7 +471,7 @@ def test_token_projects_forbidden_plugin(makemapp, maketestapp, makexom):
 def test_token_pypi_expiry_caveat(makerequest, xom):
     from pyramid.httpexceptions import HTTPForbidden
     request = makerequest("/")
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         token = request.devpi_token_utility.new_token(user)
         request.headers["Authorization"] = f"Bearer {token}"
@@ -514,7 +514,7 @@ def test_token_pypi_projects_caveat(app, makerequest, xom):
     from pyramid.httpexceptions import HTTPForbidden
     import pyramid.interfaces
     request = makerequest("/")
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         stage = user.create_stage("bar")
         stage.set_versiondata(dict(name="ham", version="1.0"))
@@ -557,7 +557,7 @@ def test_token_pypitoken_caveat(app, makerequest, xom):
     import pypitoken
     import pyramid.interfaces
     request = makerequest("/")
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         stage = user.create_stage("bar")
         stage.set_versiondata(dict(name="ham", version="1.0"))
@@ -599,7 +599,7 @@ def test_token_pypitoken_legacy_caveat(app, makerequest, xom):
     import pypitoken
     import pyramid.interfaces
     request = makerequest("/")
-    with xom.keyfs.transaction(write=True):
+    with xom.keyfs.write_transaction():
         user = xom.model.create_user("foo", "")
         stage = user.create_stage("bar")
         stage.set_versiondata(dict(name="ham", version="1.0"))
