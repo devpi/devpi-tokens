@@ -1,3 +1,10 @@
+1.0.2 - Unreleased
+==================
+
+- add Python 3.12 support
+- drop Python 3.7 support
+
+
 1.0.1 - 2023-03-27
 ==================
 

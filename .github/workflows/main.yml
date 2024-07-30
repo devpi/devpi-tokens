@@ -14,11 +14,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.7"
-            tox-envs: "py37,py37-client,py37-server"
-          - python-version: "3.11"
-            tox-envs: "py311,py311-client,py311-server"
-          - python-version: "pypy-3.7"
+          - python-version: "3.8"
+            tox-envs: "py38,py38-client,py38-server"
+          - python-version: "3.12"
+            tox-envs: "py312,py312-client,py312-server"
+          - python-version: "pypy-3.8"
             tox-envs: "pypy3,pypy3-client,pypy3-server"
 
     steps:
@@ -35,7 +35,7 @@ jobs:
           python -m pip install --upgrade virtualenv tox
 
       - name: "Run tox targets for ${{ matrix.python-version }} (${{ matrix.tox-envs }})"
-        continue-on-error: "${{ matrix.python-version == 'pypy-3.7' }}"
+        continue-on-error: "${{ matrix.python-version == 'pypy-3.8' }}"
         run: |
           set -xe -o nounset
           python -m tox -a -vv
