@@ -286,6 +286,20 @@ def test_token_derive(capfd, devpi):
         "*restriction*: indexes=bar"])
 
 
+def test_token_inspect_from_file(capfd, devpi, devpi_username, tmp_path):
+    devpi("token-create")
+    (out, err) = capfd.readouterr()
+    token = out.splitlines()[-1]
+    token_path = tmp_path.joinpath("token")
+    token_path.write_text(token)
+    devpi("token-inspect", "-f", str(token_path))
+    (out, err) = capfd.readouterr_matcher()
+    out.fnmatch_lines([
+        f"*user*: {devpi_username}",
+        "*id*: *",
+        "*restriction*: expires=*"])
+
+
 def test_token_list(capfd, devpi):
     from devpi_tokens.client import pymacaroons
     devpi("token-create")
