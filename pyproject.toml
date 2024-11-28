@@ -4,31 +4,46 @@ build-backend = "setuptools.build_meta"
 
 
 [tool.ruff]
-select = [
-    "B", "COM", "DTZ", "E", "ERA", "EXE", "F",
-    "ICN", "ISC", "PGH", "PIE", "PLC", "PLE", "PLR", "PLW",
-    "RUF", "SIM", "T10", "TID", "TRY", "W", "YTT",
-]
+target-version = "py38"
+
+
+[tool.ruff.lint]
+select = ["ALL"]
 ignore = [
-    "B007", # maybe cleanup later
-    "B904", # maybe cleanup later
-    "E501",
-    "E741",
-    "PLC1901", # maybe cleanup later
-    "PLR2004",
-    "PLW2901", # maybe cleanup later
-    "SIM102", # maybe cleanup later
-    "SIM105", # cleanup soon
-    "SIM108", # cleanup later
-    "TRY003",
-    "TRY004", # maybe cleanup later
-    "TRY200", # cleanup later
+    "ANN", # maybe cleanup later - annotations
+    "B007", # unused loop variable - maybe cleanup later
+    "BLE001", # blind exception - cleanup soon
+    "C408", # dict call
+    "C901", # complex structure - maybe cleanup later
+    "D", # docstrings
+    "E501", # line length
+    "EM101", # string literal in exception - maybe cleanup later
+    "EM102", # f-string in exception - maybe cleanup later
+    "I001", # import block unsorted - maybe cleanup later
+    "N", # ignore - naming
+    "PERF401", # list comprehension - maybe cleanup later
+    "PLR2004", # magic value - maybe cleanup later
+    "PLW2901", # loop variable overwrite - maybe cleanup later
+    "PTH", # pathlib
+    "Q", # ignore - quotes style
+    "S101", # asserts
+    "SIM102", # single if - maybe cleanup later
+    "SIM105", # contextlib.suppress - cleanup soon
+    "SIM108", # ternary op - cleanup later
+    "SLF001", # private member accessed
+    "TRY003", # maybe cleanup later
+    "TRY004", # TypeError - maybe cleanup later
+    "UP031", # printf string formatting - maybe cleanup later
 ]
-target-version = "py37"
 
 
-[tool.ruff.per-file-ignores]
-"test_*.py" = ["PLR0915"]
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = [
+    "INP001", # implicit namespace package
+    "PLR0915", # too-many-statements - maybe cleanup later
+    "S603", # subprocess untrusted input
+    "T201", # ignore - print found
+]
 
 
 [tool.setuptools_changelog_shortener]

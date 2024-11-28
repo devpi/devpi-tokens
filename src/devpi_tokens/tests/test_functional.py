@@ -13,11 +13,11 @@ import socket
 import subprocess
 import sys
 try:
-    from devpi_server import __version__
+    from devpi_server import __version__ as __server_version__  # noqa: F401
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-server installed")
 try:
-    from devpi import __version__  # noqa: F401,F811
+    from devpi import __version__ as __client_version__  # noqa: F401
 except ImportError:
     pytestmark = pytest.mark.skip("No devpi-client installed")
 
@@ -54,7 +54,7 @@ def cmd_devpi(tmpdir, monkeypatch):
         print("*** inline$ %s" % " ".join(callargs))
         hub, method = initmain(callargs)
         monkeypatch.setattr(hub, "ask_confirm", ask_confirm)
-        expected = kwargs.get("code", None)
+        expected = kwargs.get("code")
         try:
             method(hub, hub.args)
         except SystemExit as sysex:
@@ -88,8 +88,8 @@ def get_open_port(host):
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind((host, 0))
         s.listen(1)
-        port = s.getsockname()[1]
-    return port
+        return s.getsockname()[1]
+    return None
 
 
 def wait_for_port(host, port, timeout=60):

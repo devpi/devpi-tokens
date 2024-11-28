@@ -38,11 +38,10 @@ devpiserver_hookimpl = HookimplMarker("devpiserver")
 
 
 @pytest.fixture
-def xom(request, makexom):
+def xom(makexom):
     import devpi_tokens.server
-    xom = makexom(plugins=[
+    return makexom(plugins=[
         (devpi_tokens.server, None)])
-    return xom
 
 
 @pytest.fixture
@@ -510,7 +509,7 @@ def test_token_pypi_expiry_caveat(makerequest, xom):
         assert request.authenticated_userid == "foo"
 
 
-def test_token_pypi_projects_caveat(app, makerequest, xom):
+def test_token_pypi_projects_caveat(makerequest, xom):
     from pyramid.httpexceptions import HTTPForbidden
     import pyramid.interfaces
     request = makerequest("/")
@@ -552,7 +551,7 @@ def test_token_pypi_projects_caveat(app, makerequest, xom):
         assert request.authenticated_userid == "foo"
 
 
-def test_token_pypitoken_caveat(app, makerequest, xom):
+def test_token_pypitoken_caveat(makerequest, xom):
     from pyramid.httpexceptions import HTTPForbidden
     import pypitoken
     import pyramid.interfaces
@@ -594,7 +593,7 @@ def test_token_pypitoken_caveat(app, makerequest, xom):
         assert request.authenticated_userid == "foo"
 
 
-def test_token_pypitoken_legacy_caveat(app, makerequest, xom):
+def test_token_pypitoken_legacy_caveat(makerequest, xom):
     from pyramid.httpexceptions import HTTPForbidden
     import pypitoken
     import pyramid.interfaces

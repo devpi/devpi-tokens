@@ -149,7 +149,7 @@ def get_formatted_exception(e):
     return "".join(traceback.format_exception_only(e.__class__, e)).strip()
 
 
-def get_indexes_from_args(hub, args):
+def get_indexes_from_args(hub, args):  # noqa: ARG001
     if args.indexes is None:
         return None
     indexes = []
@@ -159,7 +159,7 @@ def get_indexes_from_args(hub, args):
     return sorted(indexes)
 
 
-def get_projects_from_args(hub, args):
+def get_projects_from_args(hub, args):  # noqa: ARG001
     if args.projects is None:
         return None
     projects = []
@@ -169,19 +169,19 @@ def get_projects_from_args(hub, args):
     return sorted(projects)
 
 
-def get_token_from_args(hub, args, use_getpass=True):
+def get_token_from_args(hub, args, *, use_getpass=True):
     if args.file:
         if args.file == "-":
             return sys.stdin.readline().strip()
-        else:
-            path = Path(args.file)
-            if not path.exists():
-                hub.fatal("The file for the token doesn't exist.")
-            return path.read_text().strip()
-    elif args.token:
+        path = Path(args.file)
+        if not path.exists():
+            hub.fatal("The file for the token doesn't exist.")
+        return path.read_text().strip()
+    if args.token:
         return args.token
-    elif use_getpass:
+    if use_getpass:
         return getpass("token: ")
+    return None
 
 
 def get_user_from_args(hub, args):

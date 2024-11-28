@@ -39,12 +39,12 @@ class Caveat:
             self.context = getattr(request, "root", None)
         self.verifier = verifier
 
-    def __call__(self, predicate):
-        raise InvalidMacaroon()
+    def __call__(self, predicate):  # noqa: ARG002
+        raise InvalidMacaroon
 
 
 class V1Caveat(Caveat):
-    def verify_allowed(self, value):
+    def verify_allowed(self, value):  # noqa: ARG002
         return True
 
     def verify_expires(self, value):
@@ -61,7 +61,7 @@ class V1Caveat(Caveat):
                     msg,
                     datetime.datetime.fromtimestamp(
                         expires, tz=datetime.timezone.utc))
-            except Exception:
+            except Exception:  # noqa: S110 - uncritical additional info
                 pass
             raise InvalidMacaroon(msg)
         return True
@@ -91,7 +91,7 @@ class V1Caveat(Caveat):
                     msg,
                     datetime.datetime.fromtimestamp(
                         not_before, tz=datetime.timezone.utc))
-            except Exception:
+            except Exception:  # noqa: S110 - uncritical additional info
                 pass
             raise InvalidMacaroon(msg)
         return True
@@ -168,7 +168,7 @@ class PyPIV1PermissionsCaveat(JsonCaveat):
         if permissions == "user":
             # User-scoped tokens behave exactly like a user's normal credentials.
             return True
-        elif not isinstance(permissions, dict):
+        if not isinstance(permissions, dict):
             raise InvalidMacaroon("invalid permissions format")
 
         projects = permissions.get("projects")
@@ -196,7 +196,7 @@ class PyPIV1ExpiryCaveat(JsonCaveat):
                     msg,
                     datetime.datetime.fromtimestamp(
                         not_before, tz=datetime.timezone.utc))
-            except Exception:
+            except Exception:  # noqa: S110 - uncritical additional info
                 pass
             raise InvalidMacaroon(msg)
 
@@ -207,7 +207,7 @@ class PyPIV1ExpiryCaveat(JsonCaveat):
                     msg,
                     datetime.datetime.fromtimestamp(
                         expiry, tz=datetime.timezone.utc))
-            except Exception:
+            except Exception:  # noqa: S110 - uncritical additional info
                 pass
             raise InvalidMacaroon(msg)
 
@@ -233,7 +233,7 @@ class PyPIExpiryCaveat(JsonCaveat):
                     msg,
                     datetime.datetime.fromtimestamp(
                         not_before, tz=datetime.timezone.utc))
-            except Exception:
+            except Exception:  # noqa: S110 - uncritical additional info
                 pass
             raise InvalidMacaroon(msg)
 
@@ -244,7 +244,7 @@ class PyPIExpiryCaveat(JsonCaveat):
                     msg,
                     datetime.datetime.fromtimestamp(
                         expires_at, tz=datetime.timezone.utc))
-            except Exception:
+            except Exception:  # noqa: S110 - uncritical additional info
                 pass
             raise InvalidMacaroon(msg)
 
@@ -430,12 +430,12 @@ def devpiserver_get_identity(request, credentials):
         tu.verify(request, macaroon, tokens[token_id])
     except Exception as e:  # https://github.com/ecordell/pymacaroons/issues/50
         msg = "".join(traceback.format_exception_only(e.__class__, e))
-        raise HTTPForbidden("Exception during token verification: %s" % msg)
+        raise HTTPForbidden("Exception during token verification: %s" % msg) from e
     return TokenIdentity(token_user, credentials[1])
 
 
 @server_hookimpl
-def devpiserver_auth_denials(request, acl, user, stage):
+def devpiserver_auth_denials(request, acl, user, stage):  # noqa: ARG001
     identity = request.identity
     if identity is None or not isinstance(identity, TokenIdentity):
         return None
@@ -471,7 +471,7 @@ def includeme(config):
 
 
 @server_hookimpl
-def devpiserver_pyramid_configure(config, pyramid_config):
+def devpiserver_pyramid_configure(config, pyramid_config):  # noqa: ARG001
     # by using include, the package name doesn't need to be set explicitly
     # for registrations of static views etc
     pyramid_config.include("devpi_tokens.server")

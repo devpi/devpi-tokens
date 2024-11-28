@@ -34,7 +34,7 @@ class Restriction:
     def dump(self):
         return "%s=%s" % (self.name, self.value)
 
-    def validate_against_request(self, request):
+    def validate_against_request(self, request):  # noqa: ARG002
         return
 
 
@@ -47,8 +47,8 @@ class ExpiresRestriction(Restriction):
         if value != "never":
             try:
                 value = int(value)
-            except ValueError:
-                raise ValueError("Invalid value '%s' for expiration" % value)
+            except ValueError as e:
+                raise ValueError("Invalid value '%s' for expiration" % value) from e
         self.value = value
 
     def validate_against_request(self, request):
@@ -67,16 +67,16 @@ class NotBeforeRestriction(Restriction):
     def __init__(self, value):
         try:
             value = int(value)
-        except ValueError:
-            raise ValueError(f"Invalid value '{value}' for not before")
+        except ValueError as e:
+            raise ValueError(f"Invalid value '{value}' for not before") from e
         self.value = value
 
-    def validate_against_request(self, request):
+    def validate_against_request(self, request):  # noqa: ARG002
         return
 
 
 class ListRestriction(Restriction):
-    def validate_item(self, index, item):
+    def validate_item(self, index, item):  # noqa: ARG002
         return
 
     def __init__(self, value):
