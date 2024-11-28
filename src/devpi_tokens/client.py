@@ -5,10 +5,10 @@ from devpi_tokens.restrictions import IndexesRestriction
 from devpi_tokens.restrictions import ProjectsRestriction
 from devpi_tokens.restrictions import Restrictions
 from getpass import getpass
+from pathlib import Path
 from pluggy import HookimplMarker
 import datetime
 import os
-import py
 import pymacaroons
 import sys
 import textwrap
@@ -174,11 +174,10 @@ def get_token_from_args(hub, args, use_getpass=True):
         if args.file == "-":
             return sys.stdin.readline().strip()
         else:
-            path = py.path.local(args.file)
+            path = Path(args.file)
             if not path.exists():
                 hub.fatal("The file for the token doesn't exist.")
-            with path.open(encoding="ascii") as f:
-                return f.readline().strip()
+            return path.read_text().strip()
     elif args.token:
         return args.token
     elif use_getpass:

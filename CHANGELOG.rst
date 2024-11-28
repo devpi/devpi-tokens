@@ -1,6 +1,7 @@
 1.0.2 - Unreleased
 ==================
 
+- replace all usage of deprecated pylib
 - add Python 3.12 support
 - drop Python 3.7 support
 - require at least devpi-server 6.10.0
