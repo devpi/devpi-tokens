@@ -6,9 +6,9 @@ from devpi_tokens.restrictions import ProjectsRestriction
 from devpi_tokens.restrictions import get_restrictions_from_macaroon
 from devpi_tokens.restrictions import get_restrictions_from_token
 from time import sleep
-import py
 import pytest
 import requests
+import shutil
 import socket
 import subprocess
 import sys
@@ -123,8 +123,8 @@ def wait_for_server_api(host, port, timeout=60):
 def _liveserver(serverdir):
     host = 'localhost'
     port = get_open_port(host)
-    path = py.path.local.sysfind("devpi-server")
-    init_path = py.path.local.sysfind("devpi-init")
+    path = shutil.which("devpi-server")
+    init_path = shutil.which("devpi-init")
     assert path
     args = [
         "--serverdir", str(serverdir)]
