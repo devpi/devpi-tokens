@@ -1,4 +1,4 @@
-1.0.2 - Unreleased
+1.1.0 - 2025-06-25
 ==================
 
 - replace all usage of deprecated pylib
