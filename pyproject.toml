@@ -22,6 +22,7 @@ ignore = [
     "I001", # import block unsorted - maybe cleanup later
     "N", # ignore - naming
     "PERF401", # list comprehension - maybe cleanup later
+    "PLC0415", # ignore - import at top-level of file
     "PLR2004", # magic value - maybe cleanup later
     "PLW2901", # loop variable overwrite - maybe cleanup later
     "PTH", # pathlib

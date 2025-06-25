@@ -22,6 +22,9 @@ class Restriction:
     def __init__(self, value):
         raise NotImplementedError
 
+    def __hash__(self):
+        return hash(self.value)
+
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.value == other.value
 
