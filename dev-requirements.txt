@@ -1,3 +1,4 @@
+delta
 pypitoken>=6
 pytest
 pytest-cov
