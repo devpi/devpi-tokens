@@ -130,7 +130,7 @@ def _liveserver(serverdir):
         "--serverdir", str(serverdir)]
     try:
         subprocess.check_call(
-            [str(init_path), *args, '--no-root-pypi'])
+            [str(init_path), *args, "--no-root-pypi", "--root-passwd", ""])
     except subprocess.CalledProcessError as e:
         # this won't output anything on Windows
         print(
